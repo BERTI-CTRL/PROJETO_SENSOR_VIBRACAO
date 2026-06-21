@@ -1,5 +1,5 @@
 import streamlit as st
-
+import pandas as pd
 
 st.set_page_config(page_title="Projeto Sensor Vibração",page_icon=":bar_chart:",layout="wide", height=800)
 
@@ -31,9 +31,9 @@ with Tab_df_acelerometro:
             ["Aceleração em y"]
         ]
     )
-
-with Tab_df_giro:
+'''
+'with Tab_df_giro:
 
 with Tab_graf_acelerometro:
 
-with Tab_graf_giro:
+with Tab_graf_giro:'''

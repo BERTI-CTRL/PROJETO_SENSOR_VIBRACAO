@@ -49,6 +49,6 @@ class Coletor():
 
 if __name__ == "__main__":
 
-    collector = Collector()
+    collector = Coletor()
 
     collector.executar()

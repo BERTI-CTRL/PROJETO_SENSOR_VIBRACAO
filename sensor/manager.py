@@ -1,6 +1,6 @@
 from threading import Thread
 
-from collector import Collector
+from coletor import Coletor
 
 
 class SensorManager:

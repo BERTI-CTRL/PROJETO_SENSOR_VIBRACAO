@@ -7,8 +7,8 @@ class GravadorCSV:
 
     def __init__(
         self,
-        arquivo="dados_vibracao.csv",
-        tamanho_buffer=1000
+        arquivo="dados/dados_aceleracao_giro.csv",
+        tamanho_buffer=10000
     ):
 
         self.buffer = []

@@ -11,4 +11,6 @@ dependencies = [
     "plotly>=6.7.0",
     "pyserial>=3.5",
     "streamlit>=1.57.0",
+    "streamlit-autorefresh>=1.0.1",
+    "streamlit-echarts>=0.7.0",
 ]

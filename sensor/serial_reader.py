@@ -1,4 +1,4 @@
-
+#serial_reader.py
 import serial
 import time
 
@@ -51,17 +51,25 @@ def ler_dados_fake():
         time.sleep(0.01)  # simula ~100 Hz
 
 
-
+from collections import deque
 if __name__ == "__main__":
 
     n = 0
     t0 = time.perf_counter()
+    t_anterior = time.perf_counter()
+
+
+    
+    hzs = deque(maxlen=100)
     for contador,ax,ay,az,gx,gy,gz in ler_dados(porta="COM5",baudrate=115200):
 
-        print(f"Aceleração em x:{ax} | Aceleração em y:{ay} | Aceleração em z:{az}")
+        #print(f"Aceleração em x:{ax} | Aceleração em y:{ay} | Aceleração em z:{az}")
         #
-        print(f"Giro em x: {gx} | Giro em y: {gy} | Giro em z: {gz}")
+        #print(f"Giro em x: {gx} | Giro em y: {gy} | Giro em z: {gz}")
         #time.sleep(3)
+
+
+        #media acumulada
         n += 1
 
         if n % 100 == 0:
@@ -70,8 +78,24 @@ if __name__ == "__main__":
 
             hz = n / dt
 
-            print(f"\rTaxa de recebimento: {hz:.2f} Hz",end="")
+            print(f"\rTaxa de recebimento: {hz:.2f} Hz\n",end="")
 
+
+        #Media instantânea
+        agora = time.perf_counter()
+
+        dt = agora - t_anterior
+        t_anterior = agora
+
+        hz_inst = 1 / dt if dt > 0 else 0
+
+        hzs.append(hz_inst)
+
+        print(f"\rHz instantâneo: {hz_inst:6.2f}", end="")
+
+        if contador == 1000:
+            print(hzs)#media de 250 hzs
+            break
 
     #fake
     '''for contador, ax, ay, az, gx, gy, gz in ler_dados_fake():

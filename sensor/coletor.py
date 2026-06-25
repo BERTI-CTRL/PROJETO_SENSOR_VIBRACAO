@@ -1,3 +1,5 @@
+#coletor.py
+
 import time
 
 from serial_reader import ler_dados

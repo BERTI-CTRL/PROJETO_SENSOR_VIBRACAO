@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
 
 # figura
-fig, ax = plt.subplots(figsize=(8,3))
+fig, ax = plt.subplots(figsize=(14,6))
 
 ax.set_facecolor("#0f172a")
 fig.patch.set_facecolor("#0f172a")

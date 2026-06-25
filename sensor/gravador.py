@@ -1,4 +1,4 @@
-# gravador.py
+# gravador.py ->Só grava CSV.
 
 import csv
 from pathlib import Path

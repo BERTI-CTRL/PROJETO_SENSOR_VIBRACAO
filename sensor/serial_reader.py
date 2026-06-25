@@ -1,4 +1,4 @@
-#serial_reader.py
+#serial_reader.py ->conversar com o Arduino
 import serial
 import time
 
@@ -13,6 +13,7 @@ def ler_dados(porta, baudrate=115200, timeout=1):
         arduino.reset_input_buffer() # reduzir o lixo
 
         while True:
+            timestamp = time.perf_counter()
             dados_linha = arduino.readline().decode(
                 'utf-8',
                 errors='ignore'
@@ -21,9 +22,17 @@ def ler_dados(porta, baudrate=115200, timeout=1):
             #print(repr(dados_linha))
 
             try:
-                yield tuple(map(float,dados_linha.split(",")))
-
-                
+                timestamp,contador,ax,ay,az,gx,gy,gz = map(float,dados_linha.split(","))
+                yield (
+                timestamp,
+                contador,
+                ax,
+                ay,
+                az,
+                gx,
+                gy,
+                gz
+            )
 
             except ValueError:
                 continue

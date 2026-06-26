@@ -1,8 +1,9 @@
 #serial_reader.py ->conversar com o Arduino
-import serial
-import time
 
+import time
+import serial
 import random
+
 
 def ler_dados(porta, baudrate=115200, timeout=1):
 
@@ -22,7 +23,8 @@ def ler_dados(porta, baudrate=115200, timeout=1):
             #print(repr(dados_linha))
 
             try:
-                timestamp,contador,ax,ay,az,gx,gy,gz = map(float,dados_linha.split(","))
+                contador,ax,ay,az,gx,gy,gz = map(float,dados_linha.split(","))
+
                 yield (
                 timestamp,
                 contador,

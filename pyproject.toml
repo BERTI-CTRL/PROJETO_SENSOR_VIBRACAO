@@ -9,6 +9,7 @@ dependencies = [
     "numpy>=2.4.6",
     "pandas>=3.0.3",
     "plotly>=6.7.0",
+    "py>=1.11.0",
     "pyserial>=3.5",
     "streamlit>=1.57.0",
     "streamlit-autorefresh>=1.0.1",

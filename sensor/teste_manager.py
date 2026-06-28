@@ -6,7 +6,7 @@ print("Iniciando aquisição...")
 
 manager.iniciar()
 
-time.sleep(5)
+time.sleep(15)
 
 print(f"Amostras no buffer: {len(manager.buffer.ax)}")
 

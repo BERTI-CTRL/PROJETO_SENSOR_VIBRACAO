@@ -1,9 +1,9 @@
 #coletor.py ->Só processa uma amostra.
-from buffers import BufferSensores
+from sensor.buffers import BufferSensores
 
 
-from serial_reader import ler_dados
-from gravador import GravadorCSV
+from sensor.serial_reader import ler_dados
+from sensor.gravador import GravadorCSV
 
 
 class Coletor():
@@ -22,19 +22,28 @@ class Coletor():
     
     def executar(self):
         self.rodando = True
+        print("Coletor iniciado")
+        
         try:
 
                 for timestamp,contador, ax, ay, az, gx, gy, gz in ler_dados(
                     porta=self.porta,
-                    baudrate=self.baudrate
+                   baudrate=self.baudrate
                 ):
+                    
+                    #print("Recebi uma amostra")
+
                     if not self.rodando:#Pra controle
+                        print("Parando")
                         break
 
 
 
 
                     self.buffer.adicionar(timestamp,contador, ax, ay, az, gx, gy, gz)
+
+                    print(len(self.buffer.ax))
+
 
                     self.gravador.salvar([
                         timestamp,

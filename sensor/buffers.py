@@ -11,6 +11,10 @@ class BufferSensores:
         self.ax = deque(maxlen=tamanho)
         self.ay = deque(maxlen=tamanho)
         self.az = deque(maxlen=tamanho)
+
+        self.gx = deque(maxlen=tamanho)
+        self.gy = deque(maxlen=tamanho)
+        self.gz = deque(maxlen=tamanho)
     
     def adicionar(self,timestamp,contador,ax,ay,az,gx,gy,gz):
         self.timestamp.append(timestamp)

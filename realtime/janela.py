@@ -14,6 +14,22 @@ import pyqtgraph as pg
 from sensor.manager import manager
 
 
+from PyQt6.QtWidgets import (
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QPushButton,
+    QLabel,
+)
+
+from PyQt6.QtCore import QTimer
+
+import pyqtgraph as pg
+
+from sensor.manager import manager
+
+
 class Janela(QMainWindow):
 
     def __init__(self):
@@ -22,13 +38,33 @@ class Janela(QMainWindow):
 
         self.manager = manager
 
-        self.setWindowTitle("Sensor de Vibração")
+        self.setWindowTitle("Sensor de Vibração - MPU-6050")
 
         self.resize(1200, 700)
+
+        #WIDGETS
+        self.grafico = None
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         self.criar_interface()
 
         self.criar_timer()
+
+        self.criar_botoes()
+
+        self.criar_status()
 
     # -------------------------
 
@@ -136,3 +172,25 @@ class Janela(QMainWindow):
         self.manager.parar()
 
         event.accept()
+
+
+class GraficoTempoReal():
+    def __int__():
+
+
+
+    
+
+    def configurar():
+
+
+    
+    def atualizar():
+
+    
+
+
+    def limpar():
+
+
+    def autoscale():

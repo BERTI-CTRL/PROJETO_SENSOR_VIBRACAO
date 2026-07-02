@@ -1,3 +1,4 @@
+#janela.py
 from PyQt6.QtWidgets import (
     QMainWindow,
     QWidget,
@@ -33,164 +34,57 @@ from sensor.manager import manager
 class Janela(QMainWindow):
 
     def __init__(self):
-
         super().__init__()
 
         self.manager = manager
 
-        self.setWindowTitle("Sensor de Vibração - MPU-6050")
+        self.setWindowTitle("Monitor de Vibração") 
 
-        self.resize(1200, 700)
+        self.resize(1300,800)
 
-        #WIDGETS
+        #Widgets
+
         self.grafico = None
-
-
-
-
-
-
-
-
-
-
-
-
-
+        self.curva_ax = None
+        self.curva_ay = None
+        self.curva_az = None
+        self.curva_gx = None
+        self.curva_gy = None
+        self.curva_gz = None
 
         self.criar_interface()
-
         self.criar_timer()
 
-        self.criar_botoes()
 
-        self.criar_status()
-
-    # -------------------------
-
+    # Interface
     def criar_interface(self):
-
         central = QWidget()
 
         self.setCentralWidget(central)
 
-        layout = QVBoxLayout()
+    def criar_grafico()
 
-        central.setLayout(layout)
+    def criar_painel_sinais()
 
-        # -------------------------
-        # gráfico
-        # -------------------------
+    def criar_painel_estatisticas()
 
-        self.grafico = pg.PlotWidget()
+    def criar_barra_botoes()
 
-        self.grafico.setBackground("k")
+    # Controle
+    def criar_timer()
 
-        self.grafico.showGrid(x=True, y=True)
+    def iniciar()
 
-        self.grafico.setLabel("left", "Aceleração (g)")
+    def parar()
 
-        self.grafico.setLabel("bottom", "Amostras")
+    # Atualização
+    def atualizar_grafico()
 
-        layout.addWidget(self.grafico)
+    def atualizar_estatisticas()
 
-        self.curva_ax = self.grafico.plot(
-            pen="y",
-            width=2,
-        )
+    # Utilidades
+    def limpar_grafico()
 
-        # -------------------------
-        # status
-        # -------------------------
+    def autoescala()
 
-        self.status = QLabel("Status: Parado")
-
-        layout.addWidget(self.status)
-
-        # -------------------------
-        # botões
-        # -------------------------
-
-        linha = QHBoxLayout()
-
-        layout.addLayout(linha)
-
-        self.bt_iniciar = QPushButton("Iniciar")
-
-        self.bt_parar = QPushButton("Parar")
-
-        linha.addWidget(self.bt_iniciar)
-
-        linha.addWidget(self.bt_parar)
-
-        self.bt_iniciar.clicked.connect(self.iniciar)
-
-        self.bt_parar.clicked.connect(self.parar)
-
-    # -------------------------
-
-    def criar_timer(self):
-
-        self.timer = QTimer()
-
-        self.timer.timeout.connect(self.atualizar_grafico)
-
-        self.timer.start(16)
-
-    # -------------------------
-
-    def iniciar(self):
-
-        self.manager.iniciar()
-
-        self.status.setText("Status: Adquirindo")
-
-    # -------------------------
-
-    def parar(self):
-
-        self.manager.parar()
-
-        self.status.setText("Status: Parado")
-
-    # -------------------------
-
-    def atualizar_grafico(self):
-
-        dados = list(self.manager.buffer.ax)
-
-        if len(dados) == 0:
-
-            return
-
-        self.curva_ax.setData(dados)
-
-    # -------------------------
-
-    def closeEvent(self, event):
-
-        self.manager.parar()
-
-        event.accept()
-
-
-class GraficoTempoReal():
-    def __int__():
-
-
-
-    
-
-    def configurar():
-
-
-    
-    def atualizar():
-
-    
-
-
-    def limpar():
-
-
-    def autoscale():
+    def closeEvent()

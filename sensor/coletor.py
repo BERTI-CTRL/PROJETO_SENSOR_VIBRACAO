@@ -80,7 +80,7 @@ class Coletor():
                     ###################################
                     #Hz inst
                     ###################################
-                    dt_inst = agora = self.t_anterior
+                    dt_inst = agora -self.t_anterior
                     self.t_anterior = agora
 
 
@@ -90,16 +90,16 @@ class Coletor():
                     #e à própria variação da precisão computacional. A taxa inst é calculada para fins didáticos e será atualizada poucas vezes por segundo, já que a Hz altos se torna impossível de ler
                     #####################################
 
-                    dt_inst = agora - self.t_anterior
+                    #dt_inst = agora - self.t_anterior
 
-                    self.t_anterior = agora
+                    #self.t_anterior = agora
 
                     if dt_inst>0:
 
                         self.hz_inst  = 1/dt_inst #hz inst real
                         
 
-                        self.deque_hzs_inst_suavizado.append(self.hz_inst)
+                        self.historico_hzs_inst.append(self.hz_inst)
                         self.hz_inst_suavizado = sum(self.historico_hzs_inst) / len(self.historico_hzs_inst)
 
 

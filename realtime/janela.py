@@ -135,7 +135,8 @@ class Janela(QMainWindow):
 
     def criar_painel_sinais(self):
 
-        ''' ┌────────────── Sinais ──────────────┐
+        ''' Cria o painel por ligar e desligar os sinais que serão exibidos no gráfico.
+            ┌────────────── Sinais ──────────────┐
                     ☑ Ax   ☑ Ay   ☑ Az
 
                     ☐ Gx   ☐ Gy   ☐ Gz
@@ -175,7 +176,9 @@ class Janela(QMainWindow):
 
 
     def criar_painel_estatisticas(self):
-        '''┌────────── Estatísticas ──────────┐
+
+        '''Cria o painel responsável por exibir as estatísticas da aquisição.
+        ┌────────── Estatísticas ──────────┐
 
                 Status: Parado
 
@@ -183,7 +186,7 @@ class Janela(QMainWindow):
 
                 Hz Instantâneo: 0.0
 
-                Hz Suavizado: 0.0
+                Hz Instantâneo Suavizado: 0.0
 
                 Amostras: 0
 
@@ -191,11 +194,82 @@ class Janela(QMainWindow):
 
             └──────────────────────────────────┘'''
         
-        grupo_estatiscas = QGroupBox("Estatísticas")
-        layout = QVBoxLayout()
+        grupo_estatisticas = QGroupBox("Estatísticas") #cria a caixa
+        layout = QVBoxLayout() #layout verrtical (por isso QV e não outro)
+
+        self.label_status = QLabel("Status: parado")
+        self.label_hz_medio = QLabel("Hz Médio: 0.0")
+        self.label_hz_instantaneo = QLabel("Hz Instantâneo: 0.0")
+        self.label_hz_suavizado = QLabel("Hz Instantâneo Suavizado: 0.0")
+        self.label_amostras = QLabel("Amostras: 0")
+        self.label_buffer = QLabel("Buffer: 0 / 1000")
+
+        #Adicionando ao layout
+        layout.addWidget(self.label_status)
+        layout.addWidget(self.label_hz_medio)
+        layout.addWidget(self.label_hz_instantaneo)
+        layout.addWidget(self.label_hz_suavizado)
+        layout.addWidget(self.label_amostras)
+        layout.addWidget(self.label_buffer)
+
+        
+        grupo_estatisticas.setLayout(layout) #adiciona o layout à caixa (grupo estatiscas)
+        self.layout.addWidget(grupo_estatisticas)# e adiciona a caixa (grupo estatiscas) à janela
 
 
-    def criar_barra_botoes(self)
+
+    def criar_barra_botoes(self):
+        ''' O que queremos construir é uma barra de botões que permita iniciar, parar, limpar e auto escalar o gráfico. 
+        Responsabilidades:
+        - Criar os botões de controle.
+        - Organizar os botões horizontalmente.
+        - Conectar cada botão ao método correspondente.
+        
+        ┌──────────────────────────────────────────────┐
+
+        [ Iniciar ] [ Parar ] [ Limpar ] [ Auto Escala ]
+
+        └──────────────────────────────────────────────┘
+        '''
+        
+        layout = QHBoxLayout()
+
+        self.botao_iniciar = QPushButton("Iniciar")
+        self.botao_parar = QPushButton("Parar")
+        self.botao_limpar = QPushButton("Limpar")
+        self.botao_auto_escala = QPushButton("Auto Escala")
+
+        #Adicionando ao layout
+        layout.addWidget(self.botao_iniciar)
+        layout.addWidget(self.botao_parar)
+        layout.addWidget(self.botao_limpar)
+        layout.addWidget(self.botao_auto_escala)
+
+        #Conectando os botões aos métodos correspondentes
+        self.botao_iniciar.clicked.connect(self.iniciar)
+            
+        self.botao_parar.clicked.connect(self.parar) 
+            
+
+        self.botao_limpar.clicked.connect(self.limpar_grafico)
+          
+        self.botao_auto_escala.clicked.connect(self.autoescala)
+            
+
+
+        self.layout.addLayout(layout) #adiciona o layout à janela
+
+
+        
+
+
+
+
+
+
+
+
+
 
     # Controle
     def criar_timer(self)

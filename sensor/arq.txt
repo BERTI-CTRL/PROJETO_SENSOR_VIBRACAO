@@ -1,0 +1,33 @@
+sensor/
+
+serial_reader.py
+│
+├── ler_dados()
+│
+└── ler_dados_fake()
+
+buffers.py
+│
+└── BufferSensores
+
+coletor.py
+│
+└── Coletor
+
+manager.py
+│
+└── SensorManager
+
+realtime/
+
+janela.py
+│
+├── criar_grafico()
+├── criar_painel_sinais()
+├── criar_painel_estatisticas()
+├── criar_barra_botoes()
+├── atualizar_grafico()
+├── atualizar_estatisticas()
+├── iniciar()
+├── parar()
+└── closeEvent()

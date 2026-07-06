@@ -8,7 +8,8 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QPushButton,
     QLabel,
-    QGroupBox
+    QGroupBox,
+    
 )
 
 from PyQt6.QtCore import QTimer
@@ -272,11 +273,48 @@ class Janela(QMainWindow):
 
 
     # Controle
-    def criar_timer(self)
+    def criar_timer(self):
+        ''' Função: executar periodicamente determinadas funções em intervalos regulares de tempo. No projeto, a cada 16 ms atualizar o gráfico e as estisitcias
+        Por que 16ms? 1000ms / 16ms \\aprox 62Hz,ou 62 FPS'''
 
-    def iniciar(self)
+        self.timer = QTimer()
 
-    def parar(self)
+        #conectar o timer ao método atualizar_grafico
+        self.timer.timeout.connect(self.atualizar_grafico)
+
+        #conectar o timer ao método atualizar_estatitiscas
+        self.timer.timeout.connect(self.atualizar_estatisticas)
+        self.timer.start(16) #inicia o timer com intervalo de 16ms
+
+
+    '''
+    Usuário                                                             
+        │
+        ▼
+    Botão
+        │
+        ▼
+    Janela
+        │
+        ▼
+    SensorManager
+        │
+        ▼
+    Coletor
+        │
+        ▼
+    Serial
+        │
+        ▼
+    Arduino
+    '''
+    def iniciar(self):
+        self.manager.iniciar()
+        self.label_status.setText("Status: rodando")
+
+    def parar(self):
+        self.manager.parar()
+        self.label_status.setText("Status: parado")
 
     # Atualização
     def atualizar_grafico(self)

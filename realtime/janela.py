@@ -10,11 +10,15 @@ from PyQt6.QtWidgets import (
     QLabel,
     QGroupBox,
     
+    
 )
+
+import numpy as np
 
 from PyQt6.QtCore import QTimer
 
 import pyqtgraph as pg
+
 
 from sensor.manager import manager
 
@@ -32,7 +36,7 @@ from PyQt6.QtCore import QTimer
 
 import pyqtgraph as pg
 
-from sensor.manager import manager
+from sensor.manager import manager,buffer
 
 '''
 ┌──────────────────────────────────────────────────────────┐
@@ -263,15 +267,6 @@ class Janela(QMainWindow):
 
         
 
-
-
-
-
-
-
-
-
-
     # Controle
     def criar_timer(self):
         ''' Função: executar periodicamente determinadas funções em intervalos regulares de tempo. No projeto, a cada 16 ms atualizar o gráfico e as estisitcias
@@ -317,9 +312,40 @@ class Janela(QMainWindow):
         self.label_status.setText("Status: parado")
 
     # Atualização
-    def atualizar_grafico(self)
+    def atualizar_grafico(self,sensor.manager.buffer):
+        '''Responsabiliade: ler o estado atual do buffer e desenhar as curvas selecionadas'''
+        
+        dados_ax=np.array(sensor.manager.buffer.ax)
+        dados_ay=np.array(sensor.manager.buffer.ay)
+        dados_az=np.array(sensor.manager.buffer.az)
 
-    def atualizar_estatisticas(self)
+        dados_gx=np.array(sensor.manager.buffer.gx)
+        dados_gy=np.array(sensor.manager.buffer.gy)
+        dados_gz=np.array(sensor.manager.buffer.gz)
+
+        if sensor.manager.buffer.vazio:
+            return
+
+        #Verificação do Buffer
+        if self.checkbox_ax.is_Checked():
+
+
+        if self.checkbox_ay.is_Checked():
+
+
+        if self.checkbox_az.is_Checked():
+
+
+        if self.checkbox_gx.is_Checked():
+
+
+        if self.checkbox_gy.is_Checked():
+
+
+        if self.checkbox_gz.is_Checked():
+
+
+    def atualizar_estatisticas(self):
 
     # Utilidades
     def limpar_grafico(self)

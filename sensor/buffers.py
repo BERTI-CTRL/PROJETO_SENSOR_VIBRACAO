@@ -27,3 +27,14 @@ class BufferSensores:
         self.gx.append(gx)
         self.gy.append(gy)
         self.gz.append(gz)
+
+    def vazio(self):
+        """
+        Invariante da classe:
+
+        Todos os deques possuem exatamente o mesmo número de amostras.
+
+        Dessa forma, basta verificar o tamanho de qualquer um deles
+        para saber se existem dados armazenados.
+        """
+        return len(self.ax)==0

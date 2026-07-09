@@ -82,7 +82,7 @@ class Janela(QMainWindow):
         self.criar_interface()
         self.criar_timer()
 
-
+        self.auto_scroll_ativo = True
     # Interface
     def criar_interface(self):
         central = QWidget()
@@ -105,13 +105,25 @@ class Janela(QMainWindow):
 
 
     def criar_grafico(self):
+                                
+        ''' Responsabilidades:
+        - Criar o PlotWidget.
+        - Configurar a aparência do gráfico.
+        - Criar as curvas que representarão os sinais do MPU6050.'''
+                                    
+
+        # Criando o PlotWidget
         self.grafico = pg.PlotWidget() 
+
+          # Configuração do gráfico
         self.grafico.setBackground("k")
         self.grafico.showGrid(x=True,y=True)
         self.grafico.setLabel("left","Acleração (g)")
         self.grafico.setLabel("bottom","Amostras(n)")
         self.layout.addWidget(self.grafico)
 
+
+        #curvas
         self.curva_ax = self.grafico.plot(
             pen="y",
             name="Ax"
@@ -303,53 +315,127 @@ class Janela(QMainWindow):
         ▼
     Arduino
     '''
+
+
+
     def iniciar(self):
         self.manager.iniciar()
         self.label_status.setText("Status: rodando")
+
+
+
 
     def parar(self):
         self.manager.parar()
         self.label_status.setText("Status: parado")
 
+
+
     # Atualização
-    def atualizar_grafico(self,sensor.manager.buffer):
-        '''Responsabiliade: ler o estado atual do buffer e desenhar as curvas selecionadas'''
-        
-        dados_ax=np.array(sensor.manager.buffer.ax)
-        dados_ay=np.array(sensor.manager.buffer.ay)
-        dados_az=np.array(sensor.manager.buffer.az)
-
-        dados_gx=np.array(sensor.manager.buffer.gx)
-        dados_gy=np.array(sensor.manager.buffer.gy)
-        dados_gz=np.array(sensor.manager.buffer.gz)
-
-        if sensor.manager.buffer.vazio:
-            return
+    def atualizar_grafico(self):
+        '''Responsabiliade: ler o estado atual do buffer e desenhar as curvas selecionadas e Atualizar o auto scroll (caso esteja habilitado).'''
 
         #Verificação do Buffer
-        if self.checkbox_ax.is_Checked():
+        if self.manager.buffer.vazio():
+            return
+        
+        ##############################
+        #leitura dos dados armazenados
+        ###########################
+        dados_ax=np.array(self.manager.buffer.ax)
+        dados_ay=np.array(self.manager.buffer.ay)
+        dados_az=np.array(self.manager.buffer.az)
+
+        dados_gx=np.array(self.manager.buffer.gx)
+        dados_gy=np.array(self.manager.buffer.gy)
+        dados_gz=np.array(self.manager.buffer.gz)
+        ##########################################
+        #atualização da curva ax
+        if self.checkbox_ax.isChecked():
+            self.curva_ax.show()
+            self.curva_ax.setData(dados_ax)
+
+        else:
+            self.curva_ax.hide()
+            
+        ########################
+        #atualização da curva ay
+        if self.checkbox_ay.isChecked():
+            self.curva_ay.show()
+            self.curva_ay.setData(dados_ay)
+
+        else:
+            self.curva_ay.hide()
+            
+
+        #########################
+        #atualização da curva az
+        if self.checkbox_az.isChecked():
+            self.curva_az.show()
+            self.curva_az.setData(dados_az)
+        else:
+            self.curva_az.hide()
+            
+        ########################
+        #atualização da curva gx
+
+        if self.checkbox_gx.isChecked():
+            self.curva_gx.show()
+            self.curva_gx.setData(dados_gx)
+        else:
+            self.curva_gx.hide()
+            
+        
+        #########################
+        #atualização da curva gy
+        if self.checkbox_gy.isChecked():
+            self.curva_gy.show()
+            self.curva_gy.setData(dados_gy)
+        else:
+            self.curva_gy.hide()
+            
+        
+        #########################
+        #atualização da curva gz
+        if self.checkbox_gz.isChecked():
+            self.curva_gz.show()
+            self.curva_gz.setData(dados_gz)
+        else:
+            self.curva_gz.hide()
+        
+
+        #auto scroll
+        if self.auto_scroll_ativo:
+            self.auto_scroll()
+
+       
 
 
-        if self.checkbox_ay.is_Checked():
+    def auto_scroll(self):
+        """
+        Responsabilidade:
+        Manter o gráfico acompanhando as amostras mais recentes.
+        """
 
+        #Verificação do Buffer
+        if self.manager.buffer.vazio():
+            return
+        
+        numero_amostras = len(self.manager.buffer.ax)
+        janela_de_vizualizacao = 1000
 
-        if self.checkbox_az.is_Checked():
+        inicio = max(0,numero_amostras - janela_de_vizualizacao) #max(0,numero_amostras - janela_de_vizualizacao) -> Garante que o índice de início não seja negativo, evitando erros de indexação.
+        fim = numero_amostras
 
+        self.grafico.setXRange(inicio,fim,padding=0.15) #Define o intervalo do eixo x do gráfico, mostrando apenas as últimas 1000 amostras. O deque proposto nos outros scripts ja se encarrega da remoção das amostras mais antigas, garantindo que o gráfico exiba apenas os dados mais recentes.
 
-        if self.checkbox_gx.is_Checked():
-
-
-        if self.checkbox_gy.is_Checked():
-
-
-        if self.checkbox_gz.is_Checked():
-
-
+    def autoescala(self):
+          self.grafico.enableAutoRange()
+    
     def atualizar_estatisticas(self):
 
     # Utilidades
     def limpar_grafico(self)
 
-    def autoescala(self)
 
     def closeEvent(self)

@@ -36,5 +36,8 @@ class BufferSensores:
 
         Dessa forma, basta verificar o tamanho de qualquer um deles
         para saber se existem dados armazenados.
+
+        tip Em vez de acessar diretamente os atributos internos de uma classe (len(buffer.ax)), prefira perguntar à própria classe sobre seu estado (buffer.vazio()). 
+        Isso reduz o acoplamento e permite alterar a implementação interna sem afetar o restante do sistema.
         """
         return len(self.ax)==0

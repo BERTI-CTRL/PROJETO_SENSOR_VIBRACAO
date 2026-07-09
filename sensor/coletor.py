@@ -97,6 +97,12 @@ class Coletor():
                     if dt_inst>0:
 
                         self.hz_inst  = 1/dt_inst #hz inst real
+
+                        if self.hz_inst > 500:
+                            print(
+                                f"dt={dt_inst:.6f}  "
+                                f"hz={self.hz_inst:.2f}"
+                            )
                         
 
                         self.historico_hzs_inst.append(self.hz_inst)

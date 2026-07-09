@@ -36,7 +36,7 @@ from PyQt6.QtCore import QTimer
 
 import pyqtgraph as pg
 
-from sensor.manager import manager,buffer
+from sensor.manager import manager
 
 '''
 ┌──────────────────────────────────────────────────────────┐
@@ -422,9 +422,9 @@ class Janela(QMainWindow):
             return
         
         numero_amostras = len(self.manager.buffer.ax)
-        janela_de_vizualizacao = 1000
+        janela_de_visualizacao = 1000
 
-        inicio = max(0,numero_amostras - janela_de_vizualizacao) #max(0,numero_amostras - janela_de_vizualizacao) -> Garante que o índice de início não seja negativo, evitando erros de indexação.
+        inicio = max(0,numero_amostras - janela_de_visualizacao) #max(0,numero_amostras - janela_de_visualizacao) -> Garante que o índice de início não seja negativo, evitando erros de indexação.
         fim = numero_amostras
 
         self.grafico.setXRange(inicio,fim,padding=0.15) #Define o intervalo do eixo x do gráfico, mostrando apenas as últimas 1000 amostras. O deque proposto nos outros scripts ja se encarrega da remoção das amostras mais antigas, garantindo que o gráfico exiba apenas os dados mais recentes.
@@ -432,10 +432,79 @@ class Janela(QMainWindow):
     def autoescala(self):
           self.grafico.enableAutoRange()
     
+     
     def atualizar_estatisticas(self):
 
+        ####################################
+        # Status
+        ####################################
+
+        if self.manager.coletor.rodando:
+            self.label_status.setText("Status: Adquirindo")
+        else:
+            self.label_status.setText("Status: Parado")
+
+        ####################################
+        # Frequência de aquisição
+        ####################################
+
+        self.label_hz_medio.setText(
+            f"Hz Médio: {self.manager.coletor.hz_medio:.2f}"
+        )
+
+        self.label_hz_instantaneo.setText(
+            f"Hz Instantâneo: {self.manager.coletor.hz_inst:.2f}"
+        )
+
+        self.label_hz_suavizado.setText(
+            f"Hz Instantâneo Suavizado: {self.manager.coletor.hz_inst_suavizado:.2f}"
+        )
+
+        ####################################
+        # Quantidade de dados
+        ####################################
+
+        self.label_amostras.setText(
+            f"Amostras: {self.manager.coletor.numero_amostras}"
+        )
+
+        self.label_buffer.setText(
+            f"Buffer: {len(self.manager.buffer.ax)}"
+        )
+
     # Utilidades
-    def limpar_grafico(self)
+    def limpar_grafico(self):
+        '''Responsabilidade: Limpar o gráfico,somente.'''
+
+       
+
+        self.curva_ax.clear()
+        self.curva_ay.clear()
+        self.curva_az.clear()
+        self.curva_gx.clear()
+        self.curva_gy.clear()
+        self.curva_gz.clear()
 
 
-    def closeEvent(self)
+    def closeEvent(self,event):
+        
+        """
+        Responsabilidades:
+        - Encerrar a aquisição antes do fechamento da aplicação.
+        - Permitir que a janela seja fechada com segurança.
+        """
+
+        self.manager.parar()
+
+        event.accept()  # Aceita o evento de fechamento da janela, permitindo que a aplicação seja encerrada corretamente.
+
+
+        '''event.ignore()
+        
+        Deseja salvar antes de sair?
+
+            [Sim]
+
+            [Não]
+
+            [Cancelar]'''

@@ -19,20 +19,37 @@ def ler_dados(porta, baudrate=115200, timeout=1):
 
         #print("Entrando no while")
         while True:
+            #relogio do pc. É importante ressaltar que usar o tempo de pc para medir Hz - como é o caso- pode gerar erros
+            #um dos erros que tive foi taxas de hz intantaneo absurdas,como >1000hz variando muito,haja vista que a leitura em buffers pode fazer o python atropelar dados
+            # . O arduino oferece um método interessante
+            # e mais confiável para ter um dt confiável e robusto,a saber, micros(). A partir dele, se torna mais confiável calcular o hz,
+            #ja que temos o tempo do arduino n do pc,ainda que o do pc ofereça informações relevantes, em questões de recebimento
             timestamp = time.perf_counter()
             dados_linha = arduino.readline().decode(
                 'utf-8',
                 errors='ignore'
             ).strip()
 
-            #print("Recebi bytes:", repr(dados_linha))
+            ##print("Recebi bytes:", repr(dados_linha))
 
     
 
             try:
-                contador,ax,ay,az,gx,gy,gz = map(float,dados_linha.split(","))
+                contador,tempo_arduino_us,ax,ay,az,gx,gy,gz = map(float,dados_linha.split(","))
+
+                print(
+                    contador,
+                    tempo_arduino_us,
+                    ax,
+                    ay,
+                    az,
+                    gx,
+                    gy,
+                    gz
+                )
 
                 yield (
+                tempo_arduino_us,
                 timestamp,
                 contador,
                 ax,
@@ -43,8 +60,8 @@ def ler_dados(porta, baudrate=115200, timeout=1):
                 gz
             )
 
-            except ValueError:
-                continue
+            except Exception as e:
+                print(e)
 
 
 
@@ -80,7 +97,7 @@ if __name__ == "__main__":
 
     
     hzs = deque(maxlen=100)
-    for timestamp,contador,ax,ay,az,gx,gy,gz in ler_dados(porta="COM4",baudrate=115200):
+    for tempo_arduino_us,timestamp,contador,ax,ay,az,gx,gy,gz in ler_dados(porta="COM4",baudrate=115200):
 
         print(f"Aceleração em x:{ax} | Aceleração em y:{ay} | Aceleração em z:{az}")
         #

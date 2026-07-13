@@ -4,7 +4,7 @@ from collections import deque
 
 class BufferSensores:
     def __init__(self,tamanho =10000):
-
+        self.tempo_arduino_us = deque(maxlen=tamanho)
         self.timestamp = deque(maxlen=tamanho)
         self.contador = deque(maxlen=tamanho)
         
@@ -16,7 +16,8 @@ class BufferSensores:
         self.gy = deque(maxlen=tamanho)
         self.gz = deque(maxlen=tamanho)
     
-    def adicionar(self,timestamp,contador,ax,ay,az,gx,gy,gz):
+    def adicionar(self,tempo_arduino_us,timestamp,contador,ax,ay,az,gx,gy,gz):
+        self.tempo_arduino_us.append(tempo_arduino_us)
         self.timestamp.append(timestamp)
         self.contador.append(contador)
 

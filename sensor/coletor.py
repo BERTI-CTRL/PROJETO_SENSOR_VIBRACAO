@@ -25,8 +25,8 @@ class Coletor():
         self.hz_inst = 0 # valor do hz instantaneo
         self.hz_inst_suavizado = 0 # valor do hz instantaneo suavizado
 
-        self.t0 = 0 
-        self.t_anterior = 0
+        self.tempo_arduino_inicial_us = 0
+        self.tempo_arduino_anterior_us = 0
 
         self.historico_hzs_inst = deque(maxlen=100) # fila usada para calcular o valor hz instantaneo suavizado - > GUARDA OS ÚLTIMOS 100 HZ 
     
@@ -35,14 +35,14 @@ class Coletor():
         self.rodando = True
 
         self.numero_amostras = 0
+        self.tempo_arduino_incial_us = 0
+        self.tempo_arduino_anterior_us = 0
 
         self.hz_medio = 0
         self.hz_inst = 0
         self.hz_inst_suavizado = 0
 
 
-        self.t0 = time.perf_counter()
-        self.t_anterior = self.t0
 
         self.historico_hzs_inst.clear()
 
@@ -53,17 +53,25 @@ class Coletor():
         
         try:
 
-                for timestamp,contador, ax, ay, az, gx, gy, gz in ler_dados(
+                for tempo_arduino_us,timestamp,contador, ax, ay, az, gx, gy, gz in ler_dados(
                     porta=self.porta,
                    baudrate=self.baudrate
                 ):
                     self.numero_amostras += 1
+                    
+                    if self.numero_amostras == 1:
+                        self.tempo_arduino_inicial_us = tempo_arduino_us
+                        self.tempo_arduino_anterior_us = tempo_arduino_us
+
+                        continue # esse continue ignora a primeira amostra,já que não há instante anterior
+
+                    
 
                     #####################################
                     # Estatísticas da aquisição
                     #####################################
-                    agora = time.perf_counter()
-                    dt = agora - self.t0
+
+                    dt_total = (tempo_arduino_us - self.tempo_arduino_inicial_us )/1_000_000 
 
 
                     #####################################
@@ -71,55 +79,37 @@ class Coletor():
                     #####################################
                     
 
-                    if dt>0:
+                    if dt_total>0:
 
-                        self.hz_medio = self.numero_amostras/dt
+                        self.hz_medio = self.numero_amostras/dt_total
 
 
 
                     ###################################
                     #Hz inst
                     ###################################
-                    dt_inst = agora -self.t_anterior
-                    self.t_anterior = agora
-
-
+                    dt_inst = (tempo_arduino_us - self.tempo_arduino_anterior_us)/1_000_000
+                    
 
                     #####################################
                     #Hertz instantâneo Suavizado -> menos suscetível a grandes variações. Isso é importante pois a taxa de hz sofre microvariações em decorrência dos tipos dedados envolvidos
                     #e à própria variação da precisão computacional. A taxa inst é calculada para fins didáticos e será atualizada poucas vezes por segundo, já que a Hz altos se torna impossível de ler
                     #####################################
 
-                    #dt_inst = agora - self.t_anterior
-
-                    #self.t_anterior = agora
 
                     if dt_inst>0:
 
                         self.hz_inst  = 1/dt_inst #hz inst real
 
-                        if self.hz_inst > 500:
-                            print(
-                                f"dt={dt_inst:.6f}  "
-                                f"hz={self.hz_inst:.2f}"
-                            )
                         
-
+                    
                         self.historico_hzs_inst.append(self.hz_inst)
                         self.hz_inst_suavizado = sum(self.historico_hzs_inst) / len(self.historico_hzs_inst)
+                    
+                    self.tempo_arduino_anterior_us = tempo_arduino_us
 
 
-                    ####################################
-                    #Hz instantâneo
-                    ####################################
-                    #agora = time.perf_counter()
-                    #dt_inst = agora - self.t_anterior
 
-                    '''self.t_anterior = agora
-
-                    if dt_inst>0:
-
-                        hz = 1/dt_inst'''
 
                     #print("Recebi uma amostra")
 
@@ -130,12 +120,13 @@ class Coletor():
 
 
 
-                    self.buffer.adicionar(timestamp,contador, ax, ay, az, gx, gy, gz)
+                    self.buffer.adicionar(tempo_arduino_us,timestamp,contador, ax, ay, az, gx, gy, gz)
 
                     
 
 
                     self.gravador.salvar([
+                        tempo_arduino_us,
                         timestamp,
                         contador,
                         ax,

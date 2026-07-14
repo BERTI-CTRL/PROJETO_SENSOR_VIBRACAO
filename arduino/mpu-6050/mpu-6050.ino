@@ -94,10 +94,15 @@ void loop() {
   */
 
   contador++;
+
+
   Serial.print(contador);
   Serial.print(",");
 
-  Serial.print(a_x/2048);
+  Serial.println(micros());
+  //Serial.println(",");
+
+  /*Serial.print(a_x/2048);
   Serial.print(",");
 
   Serial.print(a_y/2048);
@@ -115,6 +120,7 @@ void loop() {
   Serial.print(",");
 
   Serial.println(Gyrz/16.4);
-  //delay(10);
+  delay(10);
+  */
   
 }

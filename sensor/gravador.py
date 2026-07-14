@@ -2,7 +2,7 @@
 
 import csv
 from pathlib import Path
-
+from datetime import datetime
 class GravadorCSV:
 
     def __init__(
@@ -10,11 +10,12 @@ class GravadorCSV:
         arquivo="dados/dados_aceleracao_giro.csv",
         tamanho_buffer=10000
     ):
+        
 
         self.buffer = []
         self.tamanho_buffer = tamanho_buffer
-
-        self.arquivo = Path(arquivo)
+        data_hora = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        self.arquivo = Path(f'dados/dados_aceleracao_giro-{data_hora}.csv')
 
         arquivo_existe = self.arquivo.exists()
 
@@ -30,7 +31,8 @@ class GravadorCSV:
         if not arquivo_existe:
 
             self.writer.writerow([
-                "timestamp",
+                "tempo_arduino_us",
+                "tempo_relogio_pc",
                 "contador",
                 "ax",
                 "ay",

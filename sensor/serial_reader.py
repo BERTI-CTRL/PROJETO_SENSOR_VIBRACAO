@@ -30,10 +30,10 @@ def ler_dados(porta, baudrate=115200, timeout=1):
                 errors='ignore'
             ).strip()
 
-            ##print("Recebi bytes:", repr(dados_linha))
+            print("Recebi bytes:", repr(dados_linha)) #slk que linha maravilhosa
 
     
-
+            '''   
             try:
                 contador,tempo_arduino_us,ax,ay,az,gx,gy,gz = map(float,dados_linha.split(","))
 
@@ -62,7 +62,7 @@ def ler_dados(porta, baudrate=115200, timeout=1):
 
             except Exception as e:
                 print(e)
-
+            '''
 
 
 def ler_dados_fake():

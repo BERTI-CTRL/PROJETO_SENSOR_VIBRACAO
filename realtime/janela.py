@@ -162,22 +162,22 @@ class Janela(QMainWindow):
 
         grupo_sinais = QGroupBox("Sinais")
         layout = QGridLayout()
-        self.checkbox_ax = QCheckBox("ax")
+        self.checkbox_ax = QCheckBox("ax (amarelo)")
         self.checkbox_ax.setChecked(True) #Deixa o check box ax marcado por padrão
 
-        self.checkbox_ay = QCheckBox("ay")
+        self.checkbox_ay = QCheckBox("ay (verde)")
         self.checkbox_ay.setChecked(True)
 
-        self.checkbox_az = QCheckBox("az")
+        self.checkbox_az = QCheckBox("az(ciano)")
         self.checkbox_az.setChecked(True)
 
-        self.checkbox_gx = QCheckBox("gx")
+        self.checkbox_gx = QCheckBox("gx (vermelho)")
         self.checkbox_gx.setChecked(True)
 
-        self.checkbox_gy = QCheckBox("gy")
+        self.checkbox_gy = QCheckBox("gy(rosa)")
         self.checkbox_gy.setChecked(True)
 
-        self.checkbox_gz = QCheckBox("gz")
+        self.checkbox_gz = QCheckBox("gz (white)")
         self.checkbox_gz.setChecked(True)
 
         #Adicionando ao layout

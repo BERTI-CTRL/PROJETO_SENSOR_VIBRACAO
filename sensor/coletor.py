@@ -124,8 +124,9 @@ class Coletor():
 
                     
 
-
-                    self.gravador.salvar([
+                    # a ordem deve ser a mesma do gravador
+                    
+                    '''self.gravador.salvar([
                         tempo_arduino_us,
                         timestamp,
                         contador,
@@ -135,7 +136,7 @@ class Coletor():
                         gx,
                         gy,
                         gz
-                    ])
+                    ])'''
 
         finally:
 

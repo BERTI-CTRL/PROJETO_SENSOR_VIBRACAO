@@ -30,14 +30,19 @@ def ler_dados(porta, baudrate=115200, timeout=1):
                 errors='ignore'
             ).strip()
 
-            print("Recebi bytes:", repr(dados_linha)) #slk que linha maravilhosa
+            if not dados_linha:
+                continue
+            #print("Recebi bytes:", repr(dados_linha)) #slk que linha maravilhosa
 
+            #tracer.marcar("SerialReader", amostra)
     
-            '''   
+            
             try:
                 contador,tempo_arduino_us,ax,ay,az,gx,gy,gz = map(float,dados_linha.split(","))
-
-                print(
+                if contador % 1000 ==0:
+                    print(f"[Serial] : {contador}")
+                    
+                """print(
                     contador,
                     tempo_arduino_us,
                     ax,
@@ -46,7 +51,7 @@ def ler_dados(porta, baudrate=115200, timeout=1):
                     gx,
                     gy,
                     gz
-                )
+                )"""
 
                 yield (
                 tempo_arduino_us,
@@ -59,10 +64,12 @@ def ler_dados(porta, baudrate=115200, timeout=1):
                 gy,
                 gz
             )
+            
 
             except Exception as e:
+                print("ERRO:", repr(dados_linha))
                 print(e)
-            '''
+            
 
 
 def ler_dados_fake():

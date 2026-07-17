@@ -1,15 +1,24 @@
 import time
 
-from manager import manager
+from sensor.manager import manager
 
 print("Iniciando aquisição...")
-
 manager.iniciar()
 
-time.sleep(15)
+try:
+    while True:
+        if not manager.buffer.vazio():
+            contador = manager.buffer.contador[-1]
+            print(
+                f"Contador: {contador:.0f} | "
+                f"Amostras: {len(manager.buffer.contador)}"
+            )
 
-print(f"Amostras no buffer: {len(manager.buffer.ax)}")
+        time.sleep(1)
 
-manager.parar()
+except KeyboardInterrupt:
+    print("\nEncerrando...")
 
-print("Fim do teste.")
+finally:
+    manager.parar()
+    print("Fim do teste.")

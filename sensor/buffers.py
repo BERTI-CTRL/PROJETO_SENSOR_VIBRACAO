@@ -17,6 +17,9 @@ class BufferSensores:
         self.gz = deque(maxlen=tamanho)
     
     def adicionar(self,tempo_arduino_us,timestamp,contador,ax,ay,az,gx,gy,gz):
+        if contador % 1000 == 0:
+            print(f"[Buffer] {contador}")
+        
         self.tempo_arduino_us.append(tempo_arduino_us)
         self.timestamp.append(timestamp)
         self.contador.append(contador)

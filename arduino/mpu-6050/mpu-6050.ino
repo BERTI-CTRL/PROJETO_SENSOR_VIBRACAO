@@ -64,6 +64,8 @@ void loop() {
   Wire.write(0x3B);
   Wire.endTransmission(false);
   Wire.requestFrom(MPU,14,true);//solicita os dados do sensor
+  //Serial.print("Bytes recebidos: ");
+  //Serial.println(Wire.available());DEBUG
 
   //aRMANZENDO OS VALORES NAS VARIÁVEIS CORRESPONDENTES(NOTE QUE ELE MANDA OS VALORES FLOAT INICIALIZADOS). 
   //Os registros estão presentes na referência da InvenSense(MPU REGISTER MAP.PDF)
@@ -94,15 +96,16 @@ void loop() {
   */
 
   contador++;
-
-
+  
+  
   Serial.print(contador);
   Serial.print(",");
 
-  Serial.println(micros());
-  //Serial.println(",");
+  Serial.print(micros());
+  /
+  Serial.print(",");
 
-  /*Serial.print(a_x/2048);
+  Serial.print(a_x/2048);
   Serial.print(",");
 
   Serial.print(a_y/2048);
@@ -120,7 +123,7 @@ void loop() {
   Serial.print(",");
 
   Serial.println(Gyrz/16.4);
-  delay(10);
-  */
+  
+  
   
 }

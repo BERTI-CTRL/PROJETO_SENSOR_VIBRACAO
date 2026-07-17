@@ -338,6 +338,11 @@ class Janela(QMainWindow):
         #Verificação do Buffer
         if self.manager.buffer.vazio():
             return
+
+        contador = self.manager.buffer.contador[-1]
+
+        if contador % 1000 == 0:
+            print(f"[Janela] {contador}")
         
         ##############################
         #leitura dos dados armazenados

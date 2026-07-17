@@ -29,6 +29,7 @@ class SensorManager:
 
     @property
     def buffer(self):
+        
         return self.coletor.buffer  #
 
 

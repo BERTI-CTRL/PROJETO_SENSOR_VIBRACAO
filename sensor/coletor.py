@@ -58,6 +58,9 @@ class Coletor():
                    baudrate=self.baudrate
                 ):
                     self.numero_amostras += 1
+
+                    if contador % 1000 ==0:
+                        print(f"[Coletor] : {contador}")
                     
                     if self.numero_amostras == 1:
                         self.tempo_arduino_inicial_us = tempo_arduino_us
@@ -138,6 +141,7 @@ class Coletor():
                         gz
                     ])'''
 
+        
         finally:
 
             self.gravador.fechar()

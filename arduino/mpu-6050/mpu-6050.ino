@@ -94,7 +94,10 @@ void loop() {
   -1000°/s = 32,8
   -2000°/s = 16,4
   */
-
+  /*
+  if (Serial.availableForWrite() < 20) {
+    Serial.println("BUFFER CHEIO");
+  }*/
   contador++;
   
   
@@ -102,7 +105,7 @@ void loop() {
   Serial.print(",");
 
   Serial.print(micros());
-  /
+  
   Serial.print(",");
 
   Serial.print(a_x/2048);
@@ -123,7 +126,6 @@ void loop() {
   Serial.print(",");
 
   Serial.println(Gyrz/16.4);
-  
   
   
 }

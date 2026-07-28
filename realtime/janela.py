@@ -38,6 +38,8 @@ import pyqtgraph as pg
 
 from sensor.manager import manager
 
+
+import time
 '''
 ┌──────────────────────────────────────────────────────────┐
 │                     Sensor de Vibração                   │
@@ -334,19 +336,17 @@ class Janela(QMainWindow):
     # Atualização
     def atualizar_grafico(self):
         '''Responsabiliade: ler o estado atual do buffer e desenhar as curvas selecionadas e Atualizar o auto scroll (caso esteja habilitado).'''
+        inicio_total = time.perf_counter()
 
         #Verificação do Buffer
         if self.manager.buffer.vazio():
             return
 
-        contador = self.manager.buffer.contador[-1]
-
-        if contador % 1000 == 0:
-            print(f"[Janela] {contador}")
         
         ##############################
         #leitura dos dados armazenados
         ###########################
+        t = time.perf_counter()
         dados_ax=np.array(self.manager.buffer.ax)
         dados_ay=np.array(self.manager.buffer.ay)
         dados_az=np.array(self.manager.buffer.az)
@@ -354,8 +354,12 @@ class Janela(QMainWindow):
         dados_gx=np.array(self.manager.buffer.gx)
         dados_gy=np.array(self.manager.buffer.gy)
         dados_gz=np.array(self.manager.buffer.gz)
+
+
+        tempo_numpy = (time.perf_counter() - t) * 1000
         ##########################################
         #atualização da curva ax
+        t = time.perf_counter()
         if self.checkbox_ax.isChecked():
             self.curva_ax.show()
             self.curva_ax.setData(dados_ax)
@@ -407,13 +411,24 @@ class Janela(QMainWindow):
             self.curva_gz.setData(dados_gz)
         else:
             self.curva_gz.hide()
+        tempo_curvas = (time.perf_counter() - t) * 1000
         
-
+        t = time.perf_counter()
         #auto scroll
         if self.auto_scroll_ativo:
             self.auto_scroll()
-
+        tempo_scroll = (time.perf_counter() - t) * 1000
        
+
+        tempo_total = (time.perf_counter() - inicio_total) * 1000
+
+        if tempo_total > 5:
+            print(
+                f"numpy={tempo_numpy:.2f} ms | "
+                f"curvas={tempo_curvas:.2f} ms | "
+                f"scroll={tempo_scroll:.2f} ms | "
+                f"TOTAL={tempo_total:.2f} ms"
+            )
 
 
     def auto_scroll(self):

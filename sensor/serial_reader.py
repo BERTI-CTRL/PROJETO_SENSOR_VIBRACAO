@@ -1,11 +1,12 @@
 #serial_reader.py ->conversar com o Arduino
+print("INICIOU O SERIAL_READER")
 
 import time
 import serial
 import random
 
 
-def ler_dados(porta, baudrate=115200, timeout=1):
+def ler_dados(porta, baudrate=230400, timeout=1):
 
     with serial.Serial(porta, baudrate, timeout=timeout) as arduino:
         #print("Abrindo serial...")
@@ -18,6 +19,7 @@ def ler_dados(porta, baudrate=115200, timeout=1):
 
 
         #print("Entrando no while")
+        linhas_invalidas = 0
         while True:
             #relogio do pc. É importante ressaltar que usar o tempo de pc para medir Hz - como é o caso- pode gerar erros
             #um dos erros que tive foi taxas de hz intantaneo absurdas,como >1000hz variando muito,haja vista que a leitura em buffers pode fazer o python atropelar dados
@@ -25,6 +27,7 @@ def ler_dados(porta, baudrate=115200, timeout=1):
             # e mais confiável para ter um dt confiável e robusto,a saber, micros(). A partir dele, se torna mais confiável calcular o hz,
             #ja que temos o tempo do arduino n do pc,ainda que o do pc ofereça informações relevantes, em questões de recebimento
             timestamp = time.perf_counter()
+            print("Esperando linha...")
             dados_linha = arduino.readline().decode(
                 'utf-8',
                 errors='ignore'
@@ -32,13 +35,18 @@ def ler_dados(porta, baudrate=115200, timeout=1):
 
             if not dados_linha:
                 continue
-            #print("Recebi bytes:", repr(dados_linha)) #slk que linha maravilhosa
+            print("Recebi bytes:", repr(dados_linha)) #slk que linha maravilhosa
 
-            #tracer.marcar("SerialReader", amostra)
+            
+            campos = dados_linha.split(",")
+            if len(campos) != 8:
+                linhas_invalidas += 1 
+                
+                continue
     
             
             try:
-                contador,tempo_arduino_us,ax,ay,az,gx,gy,gz = map(float,dados_linha.split(","))
+                contador,tempo_arduino_us,ax,ay,az,gx,gy,gz = map(float,campos)
                 if contador % 1000 ==0:
                     print(f"[Serial] : {contador}")
                     
@@ -66,9 +74,10 @@ def ler_dados(porta, baudrate=115200, timeout=1):
             )
             
 
-            except Exception as e:
-                print("ERRO:", repr(dados_linha))
-                print(e)
+            except ValueError:
+                linhas_invalidas += 1
+                print(f"[Serial] Linha inválida: {repr(dados_linha)}")
+                continue
             
 
 
@@ -95,6 +104,8 @@ def ler_dados_fake():
 
 
 if __name__ == "__main__":
+    print("Entrou no main")
+
     from collections import deque
 
     n = 0

@@ -6,7 +6,7 @@ import serial
 import random
 
 
-def ler_dados(porta, baudrate=230400, timeout=1):
+def ler_dados(porta, baudrate=230400, timeout=0.1):
 
     with serial.Serial(porta, baudrate, timeout=timeout) as arduino:
         #print("Abrindo serial...")
@@ -27,11 +27,16 @@ def ler_dados(porta, baudrate=230400, timeout=1):
             # e mais confiável para ter um dt confiável e robusto,a saber, micros(). A partir dele, se torna mais confiável calcular o hz,
             #ja que temos o tempo do arduino n do pc,ainda que o do pc ofereça informações relevantes, em questões de recebimento
             timestamp = time.perf_counter()
+
+
+
             print("Esperando linha...")
             dados_linha = arduino.readline().decode(
                 'utf-8',
                 errors='ignore'
             ).strip()
+
+
 
             if not dados_linha:
                 continue
@@ -106,51 +111,21 @@ def ler_dados_fake():
 if __name__ == "__main__":
     print("Entrou no main")
 
-    from collections import deque
-
-    n = 0
-    t0 = time.perf_counter()
-    t_anterior = time.perf_counter()
-
+    
 
     
-    hzs = deque(maxlen=100)
+    
     for tempo_arduino_us,timestamp,contador,ax,ay,az,gx,gy,gz in ler_dados(porta="COM4",baudrate=115200):
 
+        print("contador:",contador)
         print(f"Aceleração em x:{ax} | Aceleração em y:{ay} | Aceleração em z:{az}")
-        #
-        print(f"Giro em x: {gx} | Giro em y: {gy} | Giro em z: {gz}")
+        
+        #print(f"Giro em x: {gx} | Giro em y: {gy} | Giro em z: {gz}")
         #time.sleep(3)
 
 
-        #media acumulada
-        n += 1
+        
 
-        if n % 100 == 0:
-
-            dt = time.perf_counter() - t0
-
-            hz = n / dt
-
-            #print(f"\rTaxa de recebimento: {hz:.2f} Hz\n",end="")
-
-
-        #Media instantânea
-        agora = time.perf_counter()
-
-        dt = agora - t_anterior
-        t_anterior = agora
-
-        hz_inst = 1 / dt if dt > 0 else 0
-
-        hzs.append(hz_inst)
-
-        #print(f"\rHz instantâneo: {hz_inst:6.2f}", end="")
-
-        '''if contador == 1000:
-            print(hzs)#media de 250 hzs
-            break'''
-
-    #fake
+    #fake (debug)
     '''for contador, ax, ay, az, gx, gy, gz in ler_dados_fake():
         print(ax, ay, az)'''

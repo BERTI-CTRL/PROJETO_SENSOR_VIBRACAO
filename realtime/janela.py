@@ -22,10 +22,10 @@ from utils.statistics import calcular_estatisticas
 
 
 # A aquisicao recebe aproximadamente 212 Hz. A tela nao precisa desenhar
-# todas as amostras: 10 FPS e suficiente para uma visualizacao fluida.
-INTERVALO_GRAFICO_MS = 100
+# todas as amostras: 5 FPS e suficiente para uma visualizacao fluida.
+INTERVALO_GRAFICO_MS = 200
 INTERVALO_ESTATISTICAS_MS = 500
-PONTOS_GRAFICO = 500
+PONTOS_GRAFICO = 250
 
 EIXOS = ("ax", "ay", "az", "gx", "gy", "gz")
 CORES = {"ax": "y", "ay": "g", "az": "c", "gx": "r", "gy": "m", "gz": "w"}

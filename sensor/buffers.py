@@ -1,103 +1,144 @@
-#buffers.py -> Só guarda dados.
-from collections import deque
-from itertools import islice
+# buffers.py - Buffer circular otimizado com NumPy (compatível com código existente)
 from threading import Lock
+import numpy as np
 
 
 class BufferSensores:
-    """Histórico circular compartilhado entre aquisição e interface."""
+    """Buffer circular thread-safe usando um único array 2D do NumPy.
+    
+    Otimizado para alta performance em aquisição de dados do MPU6050.
+    - Usa um único array 2D para armazenar todos os dados
+    - Operações de snapshot são extremamente rápidas (cópia de arrays NumPy)
+    - Thread-safe com Lock para sincronizar acesso
+    - Mantém 100% compatibilidade com código existente (atributos ax, ay, az, etc.)
+    """
+    
+    # Nomes das colunas
+    COLUNAS = [
+        "tempo_arduino_us", "timestamp", "contador",
+        "ax", "ay", "az", "gx", "gy", "gz"
+    ]
 
     def __init__(self, tamanho=10000):
         self.tamanho_maximo = tamanho
-        # Um lock protege a atualização conjunta dos nove sinais.
-        # Ele nunca é mantido durante leitura serial, gravação CSV ou desenho.
         self._lock = Lock()
+        # Array 2D: (tamanho_maximo, 9 colunas)
+        self._dados = np.zeros((tamanho, 9), dtype=np.float64)
+        self._index = 0      # Próxima posição a escrever
+        self._count = 0      # Total de amostras escritas (cresce até tamanho_maximo)
 
-        self.tempo_arduino_us = deque(maxlen=tamanho)
-        self.timestamp = deque(maxlen=tamanho)
-        self.contador = deque(maxlen=tamanho)
-        
-        self.ax = deque(maxlen=tamanho)
-        self.ay = deque(maxlen=tamanho)
-        self.az = deque(maxlen=tamanho)
-
-        self.gx = deque(maxlen=tamanho)
-        self.gy = deque(maxlen=tamanho)
-        self.gz = deque(maxlen=tamanho)
-    
     def adicionar(self, tempo_arduino_us, timestamp, contador, ax, ay, az, gx, gy, gz):
         with self._lock:
-            self.tempo_arduino_us.append(tempo_arduino_us)
-            self.timestamp.append(timestamp)
-            self.contador.append(contador)
-
-            self.ax.append(ax)
-            self.ay.append(ay)
-            self.az.append(az)
-
-            self.gx.append(gx)
-            self.gy.append(gy)
-            self.gz.append(gz)
-
-        # Mantido como log de depuração, mas fora do lock para nunca atrasar a UI.
-        if contador % 1000 == 0:
-            print(f"[Buffer] {contador}")
+            self._dados[self._index] = [
+                tempo_arduino_us, timestamp, contador,
+                ax, ay, az, gx, gy, gz
+            ]
+            self._index = (self._index + 1) % self.tamanho_maximo
+            if self._count < self.tamanho_maximo:
+                self._count += 1
 
     def vazio(self):
-        """
-        Invariante da classe:
-
-        Todos os deques possuem exatamente o mesmo número de amostras.
-
-        Dessa forma, basta verificar o tamanho de qualquer um deles
-        para saber se existem dados armazenados.
-
-        tip Em vez de acessar diretamente os atributos internos de uma classe (len(buffer.ax)), prefira perguntar à própria classe sobre seu estado (buffer.vazio()). 
-        Isso reduz o acoplamento e permite alterar a implementação interna sem afetar o restante do sistema.
-        """
         with self._lock:
-            return len(self.ax) == 0
+            return self._count == 0
 
     def tamanho_atual(self):
-        """Retorna a quantidade de amostras no histórico."""
         with self._lock:
-            return len(self.contador)
+            return self._count
 
     def snapshot(self, quantidade=None):
-        """Copia um recorte consistente de todos os sinais.
-
-        A interface deve usar este método em vez de copiar cada deque separadamente.
-        Assim, todos os eixos retornados pertencem exatamente às mesmas amostras.
-        """
+        """Retorna janela das amostras MAIS RECENTES em ordem cronológica (antigo → novo)."""
         with self._lock:
-            total = len(self.contador)
             if quantidade is None:
-                inicio = 0
+                quantidade = self._count
+            quantidade = min(quantidade, self._count)
+            if quantidade == 0:
+                return {coluna: self._dados[0:0, i].copy() for i, coluna in enumerate(self.COLUNAS)}
+            
+            if self._count < self.tamanho_maximo:
+                # Buffer não cheio: dados contíguos em 0 até _count-1
+                inicio = self._count - quantidade
+                return {
+                    coluna: self._dados[inicio:self._count, i].copy()
+                    for i, coluna in enumerate(self.COLUNAS)
+                }
             else:
-                inicio = max(0, total - quantidade)
-
-            fim = total
-            return {
-                "tempo_arduino_us": list(islice(self.tempo_arduino_us, inicio, fim)),
-                "timestamp": list(islice(self.timestamp, inicio, fim)),
-                "contador": list(islice(self.contador, inicio, fim)),
-                "ax": list(islice(self.ax, inicio, fim)),
-                "ay": list(islice(self.ay, inicio, fim)),
-                "az": list(islice(self.az, inicio, fim)),
-                "gx": list(islice(self.gx, inicio, fim)),
-                "gy": list(islice(self.gy, inicio, fim)),
-                "gz": list(islice(self.gz, inicio, fim)),
-            }
+                # Buffer cheio + wrap-around: ordem cronológica = _index até fim, depois 0 até _index-1
+                # Pegar últimos 'quantidade' elementos dessa sequência cronológica
+                dados_cronologicos = np.concatenate([
+                    self._dados[self._index:, :],
+                    self._dados[:self._index, :]
+                ])
+                inicio = len(dados_cronologicos) - quantidade
+                return {
+                    coluna: dados_cronologicos[inicio:, i].copy()
+                    for i, coluna in enumerate(self.COLUNAS)
+                }
 
     def limpar(self):
-        """Remove o histórico visual sem interromper a aquisição."""
         with self._lock:
-            self.tempo_arduino_us.clear()
-            self.timestamp.clear()
-            self.contador.clear()
-            self.ax.clear()
-            self.ay.clear()
-            self.az.clear()
-            self.gx.clear()
-            self.gy.clear()
-            self.gz.clear()
+            self._index = 0
+            self._count = 0
+
+    # =========================================================================
+    # MÉTODO AUXILIAR: Retorna slice correto considerando wrap-around
+    # =========================================================================
+    
+    def _get_coluna_slice(self, coluna_idx):
+        """Retorna view da coluna com TODAS as amostras em ordem cronológica (mais antigo → mais novo).
+        
+        Lida corretamente com wrap-around: quando buffer está cheio (_count == tamanho_maximo),
+        os dados cronológicos estão em _index até fim, depois 0 até _index-1.
+        """
+        with self._lock:
+            if self._count == 0:
+                return self._dados[0:0, coluna_idx]  # array vazio
+            
+            if self._count < self.tamanho_maximo:
+                # Buffer ainda não encheu: dados estão em 0 até _count-1 (contíguo, ordem cronológica)
+                return self._dados[:self._count, coluna_idx]
+            else:
+                # Buffer cheio + wrap-around: ordem cronológica = _index até fim, depois 0 até _index-1
+                return np.concatenate([
+                    self._dados[self._index:, coluna_idx],
+                    self._dados[:self._index, coluna_idx]
+                ])
+
+    # =========================================================================
+    # PROPRIEDADES PARA COMPATIBILIDADE (janela.py acessa buffer.ax, etc.)
+    # =========================================================================
+    
+    @property
+    def tempo_arduino_us(self):
+        return self._get_coluna_slice(0)
+    
+    @property
+    def timestamp(self):
+        return self._get_coluna_slice(1)
+    
+    @property
+    def contador(self):
+        return self._get_coluna_slice(2)
+    
+    @property
+    def ax(self):
+        return self._get_coluna_slice(3)
+    
+    @property
+    def ay(self):
+        return self._get_coluna_slice(4)
+    
+    @property
+    def az(self):
+        return self._get_coluna_slice(5)
+    
+    @property
+    def gx(self):
+        return self._get_coluna_slice(6)
+    
+    @property
+    def gy(self):
+        return self._get_coluna_slice(7)
+    
+    @property
+    def gz(self):
+        return self._get_coluna_slice(8)

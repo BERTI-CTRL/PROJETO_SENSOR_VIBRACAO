@@ -6,13 +6,12 @@ import serial
 import random
 
 
-def ler_dados(porta, baudrate=230400, timeout=0.1):
+def ler_dados(porta, baudrate=115200, timeout=0.1):
 
     with serial.Serial(porta, baudrate, timeout=timeout) as arduino:
         #print("Abrindo serial...")
     
         time.sleep(2)
-
 
         #print("Resetando buffer")
         arduino.reset_input_buffer() # reduzir o lixo
@@ -29,13 +28,11 @@ def ler_dados(porta, baudrate=230400, timeout=0.1):
             timestamp = time.perf_counter()
 
 
-
             print("Esperando linha...")
             dados_linha = arduino.readline().decode(
                 'utf-8',
                 errors='ignore'
             ).strip()
-
 
 
             if not dados_linha:
@@ -113,8 +110,9 @@ if __name__ == "__main__":
 
     
 
+
     
-    
+
     for tempo_arduino_us,timestamp,contador,ax,ay,az,gx,gy,gz in ler_dados(porta="COM4",baudrate=115200):
 
         print("contador:",contador)
@@ -123,9 +121,7 @@ if __name__ == "__main__":
         #print(f"Giro em x: {gx} | Giro em y: {gy} | Giro em z: {gz}")
         #time.sleep(3)
 
-
         
-
     #fake (debug)
     '''for contador, ax, ay, az, gx, gy, gz in ler_dados_fake():
         print(ax, ay, az)'''

@@ -22,7 +22,7 @@ O problema era o **wrap-around do buffer circular** na versão otimizada com Num
 
 ## Arquivos Envolvidos e Alterações
 
-### 1. `sensor/buffers.py` — **CAUSA RAIZ E CORREÇÃO**
+### 1. [[buffers]] — **CAUSA RAIZ E CORREÇÃO**
 
 #### ❌ Código Problemático (Versão NumPy original)
 ```python
@@ -211,11 +211,11 @@ manager.parar()
 
 | Arquivo | Linhas | Função |
 |---------|--------|--------|
-| `sensor/buffers.py` | 68-70 | `_get_coluna_slice()` - método central do wrap-around |
-| `sensor/buffers.py` | 72-108 | Propriedades `contador`, `ax`, `ay`, `az`, `gx`, `gy`, `gz`, etc. |
-| `sensor/buffers.py` | 48-68 | `snapshot()` corrigido para wrap-around |
-| `sensor/coletor.py` | 126-128 | `buffer.adicionar()` - chama a cada amostra |
-| `realtime/janela.py` | 354-359 | `buffer.snapshot(250)` + `buffer.contador[-1]` |
+| [[buffers]] | 68-70 | `_get_coluna_slice()` - método central do wrap-around |
+| [[buffers]] | 72-108 | Propriedades `contador`, `ax`, `ay`, `az`, `gx`, `gy`, `gz`, etc. |
+| [[buffers]] | 48-68 | `snapshot()` corrigido para wrap-around |
+| [[coletor]] | 126-128 | `buffer.adicionar()` - chama a cada amostra |
+| [[janela]] | 354-359 | `buffer.snapshot(250)` + `buffer.contador[-1]` |
 
 ---
 

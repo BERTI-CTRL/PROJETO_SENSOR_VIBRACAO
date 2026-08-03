@@ -19,7 +19,7 @@ O problema **não era perda real de amostras do Arduino**, mas sim **quebra de l
 
 ## Arquivos Envolvidos e Alterações
 
-### 1. `sensor/serial_reader.py` — **CAUSA RAIZ**
+### 1. [[serial_reader]] — **CAUSA RAIZ**
 
 #### ❌ Código Problemático (Minha modificação incorreta)
 ```python
@@ -81,7 +81,7 @@ while True:
 
 ---
 
-### 2. `sensor/buffers.py` — **OTIMIZAÇÃO (Não causou o bug, mas foi reescrito)**
+### 2. [[buffers]] — **OTIMIZAÇÃO (Não causou o bug, mas foi reescrito)**
 
 #### Versão Original (~100 linhas, 9 deques)
 ```python
@@ -148,7 +148,7 @@ def ax(self):
 
 ---
 
-### 3. `realtime/janela.py` — **AJUSTES DE PERFORMANCE (Opcional)**
+### 3. [[janela]] — **AJUSTES DE PERFORMANCE (Opcional)**
 
 ```python
 # Linhas 24-28: Reduzido FPS para diminuir lock contention
@@ -157,7 +157,11 @@ INTERVALO_ESTATISTICAS_MS = 500 # Mantido
 PONTOS_GRAFICO = 250            # Era 500 → Agora 250 (menos dados por frame)
 ```
 
+
 **Impacto:** Reduz contenção de Lock entre thread de aquisição e thread UI, mas **não era a causa do bug**.
+
+**Ponto importante:** Altos fps podem provocar perdas de amostras por atraso nas threads e processos. A 5 FPS, no estado de projeto  ***Commit: correção do salto de amostras e documentação do projeto*** foi percebido que a modificação descuidade dos FPS da interface são uma das causas das perdas de amostras!!! 5FPS  no momnto é o unico que não pula amostra
+
 
 ---
 
@@ -171,7 +175,7 @@ Serial.begin(115200);  // DEVE coincidir com Python
 // delay(10000);  // REMOVER OU COMENTAR
 ```
 
-**Importante:** Python estava configurado para 230400 baud em versões antigas, mas Arduino usa 115200. Isso causava lixo no buffer serial.
+**Importante:** Python estava configurado para 230400 baud em versões antigas, mas Arduino usa 115200. Isso causava lixo no buffer serial. Isso que o python tem problemas com taxas maiores que 115200
 
 ---
 
@@ -279,11 +283,11 @@ print(f'Saltos: {saltos}')
 
 | Arquivo | Linhas Críticas | Função |
 |---------|-----------------|--------|
-| `sensor/serial_reader.py` | 33-37 | `readline()` loop principal |
-| `sensor/buffers.py` | 15-45 | `adicionar()` + `snapshot()` NumPy |
-| `sensor/buffers.py` | 55-85 | Propriedades `ax`, `contador`, etc. |
-| `sensor/coletor.py` | 92-101 | Loop de aquisição chamando `ler_dados()` |
-| `realtime/janela.py` | 354-365 | `snapshot()` + `setData()` plot |
+| [[serial_reader]] | 33-37 | `readline()` loop principal |
+| [[buffers]] | 15-45 | `adicionar()` + `snapshot()` NumPy |
+| [[buffers]] | 55-85 | Propriedades `ax`, `contador`, etc. |
+| [[coletor]] | 92-101 | Loop de aquisição chamando `ler_dados()` |
+| [[janela]] | 354-365 | `snapshot()` + `setData()` plot |
 | `arduino/mpu-6050/mpu-6050.ino` | 13, 20 | `Serial.begin(115200)` + `delay(10000)` |
 
 ---

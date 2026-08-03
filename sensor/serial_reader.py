@@ -28,7 +28,7 @@ def ler_dados(porta, baudrate=115200, timeout=0.1):
             timestamp = time.perf_counter()
 
 
-            print("Esperando linha...")
+            #print("Esperando linha...")
             dados_linha = arduino.readline().decode(
                 'utf-8',
                 errors='ignore'
@@ -37,7 +37,7 @@ def ler_dados(porta, baudrate=115200, timeout=0.1):
 
             if not dados_linha:
                 continue
-            print("Recebi bytes:", repr(dados_linha)) #slk que linha maravilhosa
+            #print("Recebi bytes:", repr(dados_linha)) #slk que linha maravilhosa
 
             
             campos = dados_linha.split(",")

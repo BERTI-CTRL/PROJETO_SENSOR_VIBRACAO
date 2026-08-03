@@ -285,8 +285,8 @@ streamlit run home.py
 
 | Problema | Arquivo | Documentação |
 |----------|---------|--------------|
-| Pulando amostras na serial | `serial_reader.py` | `ERROS/correcao-pulos-amostras-serial.md` |
-| Buffer congelando após 10k | `buffers.py` | `ERROS/correcao-buffer-congelando-wrap-around.md` |
+| Pulando amostras na serial | `serial_reader.py` | [[correcao-pulos-amostras-serial]] |
+| Buffer congelando após 10k | `buffers.py` | [[correcao-buffer-congelando-wrap-around]] |
 
 > **Regra:** Sempre que alterar um script, atualize a documentação correspondente em `DOCS/` e `ERROS/` se for bug fix.
 

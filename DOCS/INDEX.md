@@ -10,20 +10,20 @@
 ```
 DOCS/
 ├── INDEX.md                    # Este arquivo
-├── ARQUITETURA.md              # Visão geral + fluxo completo
-├── serial_reader.md            # Leitura serial (generator)
-├── coletor.md                  # Thread de aquisição
-├── buffers.md                  # Buffer circular NumPy (wrap-around)
-├── gravador.md                 # CSV writer com batch
-├── gravador_worker.md          # Thread de gravação assíncrona
-├── manager.md                  # Facade/orquestrador
-├── janela.md                   # UI PyQt6 completa
-├── main.md                     # Entry point PyQt
-├── grafico.md                  # UI alternativa minimalista
-├── statistics.md               # Estatísticas descritivas (NumPy)
+├── [[ARQUITETURA]]              # Visão geral + fluxo completo
+├── [[serial_reader]]            # Leitura serial (generator)
+├── [[coletor]]                  # Thread de aquisição
+├── [[buffers]]                  # Buffer circular NumPy (wrap-around)
+├── [[gravador]]                 # CSV writer com batch
+├── [[gravador_worker]]          # Thread de gravação assíncrona
+├── [[manager]]                  # Facade/orquestrador
+├── [[janela]]                   # UI PyQt6 completa
+├── [[main]]                     # Entry point PyQt
+├── [[grafico]]                  # UI alternativa minimalista
+├── [[statistics]]               # Estatísticas descritivas (NumPy)
 └── ../ERROS/                   # Bugs corrigidos
-    ├── correcao-pulos-amostras-serial.md
-    └── correcao-buffer-congelando-wrap-around.md
+    ├── [[correcao-pulos-amostras-serial]]
+    └── [[correcao-buffer-congelando-wrap-around]]
 ```
 
 ---
@@ -31,30 +31,30 @@ DOCS/
 ## 📖 Guia de Leitura por Perfil
 
 ### 🔧 Desenvolvedor Backend (Pipeline de Dados)
-1. **ARQUITETURA.md** - Visão macro
-2. **serial_reader.md** - Interface Arduino → Python
-3. **coletor.md** - Thread aquisição + métricas Hz
-4. **buffers.md** - Buffer circular (crítico: wrap-around)
-5. **gravador.md** + **gravador_worker.md** - Persistência CSV
-6. **manager.md** - Orquestração
+1. **[[ARQUITETURA]]** - Visão macro
+2. **[[serial_reader]]** - Interface Arduino → Python
+3. **[[coletor]]** - Thread aquisição + métricas Hz
+4. **[[buffers]]** - Buffer circular (crítico: wrap-around)
+5. **[[gravador]]** + **[[gravador_worker]]** - Persistência CSV
+6. **[[manager]]** - Orquestração
 
 ### 🎨 Desenvolvedor Frontend (UI PyQt)
-1. **ARQUITETURA.md** - Fluxo UI ↔ Backend
-2. **janela.md** - UI completa (5 FPS, 6 canais, stats)
-3. **main.md** - Entry point
-4. **grafico.md** - UI alternativa (60 FPS, debug)
-5. **statistics.md** - Métricas exibidas (RMS, skew, kurtose)
+1. **[[ARQUITETURA]]** - Fluxo UI ↔ Backend
+2. **[[janela]]** - UI completa (5 FPS, 6 canais, stats)
+3. **[[main]]** - Entry point
+4. **[[grafico]]** - UI alternativa (60 FPS, debug)
+5. **[[statistics]]** - Métricas exibidas (RMS, skew, kurtose)
 
 ### 🐛 Debug / Troubleshooting
-1. **ERROS/correcao-pulos-amostras-serial.md** - Serial `readline()` vs `in_waiting`
-2. **ERROS/correcao-buffer-congelando-wrap-around.md** - Buffer NumPy wrap-around
-3. **buffers.md** - Seção "Bugs Corrigidos"
-4. **serial_reader.md** - Seção "Bugs Corrigidos"
+1. **[[correcao-pulos-amostras-serial]]** - Serial `readline()` vs `in_waiting`
+2. **[[correcao-buffer-congelando-wrap-around]]** - Buffer NumPy wrap-around
+3. **[[buffers]]** - Seção "Bugs Corrigidos"
+4. **[[serial_reader]]** - Seção "Bugs Corrigidos"
 
 ### 📊 Análise de Dados / Vibração
-1. **statistics.md** - Métricas (RMS, assimetria, curtose, CV%)
-2. **coletor.md** - Hz médio/instantâneo/suavizado
-3. **janela.md** - Painel estatísticas (500ms)
+1. **[[statistics]]** - Métricas (RMS, assimetria, curtose, CV%)
+2. **[[coletor]]** - Hz médio/instantâneo/suavizado
+3. **[[janela]]** - Painel estatísticas (500ms)
 
 ---
 

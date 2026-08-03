@@ -169,7 +169,7 @@ def ax(self): return self._get_coluna_slice(3)
 
 **Correção:** Implementar `_get_coluna_slice()` com `np.concatenate([_index:, :_index])` e `snapshot()` montar array cronológico antes de fatiar.
 
-**Documentação:** `ERROS/correcao-buffer-congelando-wrap-around.md`
+**Documentação:** [[correcao-buffer-congelando-wrap-around]]
 
 ---
 
@@ -246,7 +246,4 @@ print('snapshot:', snap['contador'])
 | `sensor/coletor.py:15` | `self.buffer = BufferSensores()` | Instanciação |
 | `sensor/coletor.py:126` | `self.buffer.adicionar(...)` | Escrita (215 Hz) |
 | `sensor/manager.py:53` | `return self.coletor.buffer` | Acesso via property |
-| `realtime/janela.py:342` | `if self.manager.buffer.vazio():` | Check vazio |
-| `realtime/janela.py:354` | `dados = self.manager.buffer.snapshot(250)` | Leitura UI |
-| `realtime/janela.py:483` | `len(self.manager.buffer.ax)` | Property compat |
-| `realtime/janela.py:488` | `snapshot(250)["ax"]` | Estatísticas |
+| [[janela]] | - | Check vazio / Leitura UI / Property compat / Estatísticas |

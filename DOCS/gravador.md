@@ -195,9 +195,6 @@ print('CSV criado - verificar em dados/')
 
 | Arquivo | Linha | Relação |
 |---------|-------|---------|
-| `sensor/gravador_worker.py:15` | `GravadorCSV(tamanho_buffer=1000)` | Instanciação |
-| `sensor/gravador_worker.py:34` | `gravador.salvar(linha)` | Escrita loop |
-| `sensor/gravador_worker.py:45` | `gravador.fechar()` | Cleanup |
-| `sensor/manager.py:26` | `GravadorWorker(fila)` | Thread launch |
-| `sensor/coletor.py:130` | `fila_gravacao.put_nowait([...])` | Produtor |
-| `sensor/teste_manager.py` | - | Teste indireto |
+| [[gravador_worker]] | - | Instanciação / Escrita loop / Cleanup |
+| [[manager]] | - | Thread launch |
+| [[coletor]] | - | Produtor |

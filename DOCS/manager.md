@@ -193,10 +193,7 @@ manager.parar()
 | Arquivo | Linha | Relação |
 |---------|-------|---------|
 | `sensor/__init__.py` | - | Exporta `manager` |
-| `sensor/coletor.py:12` | `self.coletor = Coletor()` | Composição |
-| `sensor/gravador_worker.py:15` | `GravadorWorker(fila)` | Composição |
-| `realtime/janela.py:20` | `from sensor.manager import manager` | UI usa global |
-| `realtime/janela.py:328` | `self.manager.iniciar()` | Botão Iniciar |
-| `realtime/janela.py:333` | `self.manager.parar()` | Botão Parar |
-| `realtime/janela.py:354` | `self.manager.buffer.snapshot()` | Leitura UI |
+| [[coletor]] | - | Composição |
+| [[gravador_worker]] | - | Composição |
+| [[janela]] | - | UI usa global / Botão Iniciar / Botão Parar / Leitura UI |
 | `sensor/teste_manager.py:3` | `from sensor.manager import manager` | CLI teste |

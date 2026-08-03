@@ -132,7 +132,6 @@ python realtime/main.py
 
 | Arquivo | Linha | Relação |
 |---------|-------|---------|
-| `realtime/janela.py:56` | `class Janela(QMainWindow)` | UI implementada aqui |
-| `realtime/janela.py:524` | `def closeEvent` | Encerramento limpo |
-| `sensor/manager.py` | - | Pipeline backend |
+| [[janela]] | - | UI implementada / Encerramento limpo |
+| [[manager]] | - | Pipeline backend |
 | `pyproject.toml` | - | Dependências PyQt6 |

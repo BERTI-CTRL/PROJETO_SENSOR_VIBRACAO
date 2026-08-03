@@ -219,6 +219,4 @@ print(f'Média: {est2.media:.4f} (esperado 3.0)')
 
 | Arquivo | Linha | Uso |
 |---------|-------|-----|
-| `realtime/janela.py:21` | `from utils.statistics import calcular_estatisticas` | Import |
-| `realtime/janela.py:488` | `est = calcular_estatisticas(dados_ax)` | Called @ 500ms |
-| `realtime/janela.py:492` | `fmt(est.media)` | Formatação labels |
+| [[janela]] | - | Import / Called @ 500ms / Formatação labels |

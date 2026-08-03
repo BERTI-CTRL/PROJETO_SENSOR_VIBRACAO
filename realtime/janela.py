@@ -4,7 +4,7 @@ import math
 
 import numpy as np
 import pyqtgraph as pg
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtWidgets import (
     QCheckBox,
     QGridLayout,
@@ -21,11 +21,15 @@ from sensor.manager import manager
 from utils.statistics import calcular_estatisticas
 
 
-# A aquisicao recebe aproximadamente 212 Hz. A tela nao precisa desenhar
-# todas as amostras: 5 FPS e suficiente para uma visualizacao fluida.
-INTERVALO_GRAFICO_MS = 200
+# A aquisicao recebe aproximadamente 212 Hz. 
+# Interface a 30 FPS para visualizacao fluida.
+# Otimizacoes agressivas para 30 FPS sem travar
+import pyqtgraph as pg
+pg.setConfigOptions(antialias=False, useOpenGL=True)  # OpenGL backend + sem antialias
+
+INTERVALO_GRAFICO_MS = 33
 INTERVALO_ESTATISTICAS_MS = 500
-PONTOS_GRAFICO = 250
+PONTOS_GRAFICO = 150
 
 EIXOS = ("ax", "ay", "az", "gx", "gy", "gz")
 CORES = {"ax": "y", "ay": "g", "az": "c", "gx": "r", "gy": "m", "gz": "w"}
@@ -75,7 +79,8 @@ class Janela(QMainWindow):
         self.criar_interface()
         self.criar_timer()
 
-        self.auto_scroll_ativo = True
+        self.auto_scroll_ativo = False
+        self._x_data = np.arange(PONTOS_GRAFICO)
     # Interface
     def criar_interface(self):
         central = QWidget()
@@ -96,49 +101,34 @@ class Janela(QMainWindow):
 
 
     def criar_grafico(self):
-                                 
+                                  
         ''' Responsabilidades:
         - Criar o PlotWidget.
         - Configurar a aparência do gráfico.
         - Criar as curvas que representarão os sinais do MPU6050.'''
-                                     
+                                      
 
-        # Criando o PlotWidget
-        self.grafico = pg.PlotWidget() 
-
-          # Configuração do gráfico
+        # Criando o PlotWidget com OpenGL
+        self.grafico = pg.PlotWidget(enableMenu=False)  # disable context menu
         self.grafico.setBackground("k")
-        self.grafico.showGrid(x=True,y=True)
-        self.grafico.setLabel("left","Aceleração (g)")
-        self.grafico.setLabel("bottom","Amostras(n)")
+        self.grafico.showGrid(x=True, y=True, alpha=0.3)
+        self.grafico.setLabel("left", "Aceleração (g)")
+        self.grafico.setLabel("bottom", "Amostras (n)")
+        self.grafico.setMouseEnabled(x=False, y=False)  # disable mouse zoom/pan
         self.layout.addWidget(self.grafico)
 
+        # Desabilita auto-range (causa lag)
+        self.grafico.setAutoRange(x=False, y=False)
+        self.grafico.setXRange(0, PONTOS_GRAFICO, padding=0)
+        self.grafico.setYRange(-20, 20, padding=0)  # fixed range
 
-        #curvas
-        self.curva_ax = self.grafico.plot(
-            pen="y",
-            name="Ax"
-        )
-        self.curva_ay = self.grafico.plot(
-            pen="g",
-            name="Ay"
-        )
-        self.curva_az = self.grafico.plot(
-            pen="c",
-            name="Az"
-        )
-        self.curva_gx = self.grafico.plot(
-            pen="r",
-            name="Gx"
-        )
-        self.curva_gy = self.grafico.plot(
-            pen="m",
-            name="Gy"
-        )
-        self.curva_gz = self.grafico.plot(
-            pen="w",
-            name="Gz"
-        )
+        # Curvas com render otimizado
+        self.curva_ax = self.grafico.plot(pen=pg.mkPen("y", width=1), name="Ax")
+        self.curva_ay = self.grafico.plot(pen=pg.mkPen("g", width=1), name="Ay")
+        self.curva_az = self.grafico.plot(pen=pg.mkPen("c", width=1), name="Az")
+        self.curva_gx = self.grafico.plot(pen=pg.mkPen("r", width=1), name="Gx")
+        self.curva_gy = self.grafico.plot(pen=pg.mkPen("m", width=1), name="Gy")
+        self.curva_gz = self.grafico.plot(pen=pg.mkPen("w", width=1), name="Gz")
 
 
     def criar_painel_sinais(self):
@@ -150,7 +140,6 @@ class Janela(QMainWindow):
                     ☐ Gx   ☐ Gy   ☐ Gz
             └────────────────────────────────────┘'''
         
-
         grupo_sinais = QGroupBox("Sinais")
         layout = QGridLayout()
         self.checkbox_ax = QCheckBox("ax (amarelo)")
@@ -186,58 +175,74 @@ class Janela(QMainWindow):
     def criar_painel_estatisticas(self):
 
         '''Cria o painel responsável por exibir as estatísticas da aquisição.
-        ┌────────── Estatísticas ──────────┐
-
-                Status: Parado
-
-                Hz Médio: 0.0
-
-                Hz Instantâneo: 0.0
-
-                Hz Instantâneo Suavizado: 0.0
-
-                Amostras: 0
-
-                Buffer: 0 / 1000
-
-                Média Ax: --
-
-                Desvio Ax: --
-
-                RMS Ax: --
-
-
-            └──────────────────────────────────┘'''
+        ┌─────────────────────────────────────────────────────────────────┐
+        │ Status: Adquirindo                                              │
+        │ Hz Médio: 214.56  |  Hz Inst: 214.32  |  Hz Suav: 214.45       │
+        │ Amostras: 15234  |  Buffer: 10000 / 10000                      │
+        ├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┐ │
+        │          │    ax    │    ay    │    az    │    gx    │   gy   │   gz   │
+        ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤ │
+        │ Média    │  0.0012  │ -0.0040  │ -0.0380  │ -3.649   │  0.214 │ -0.344 │
+        ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤ │
+        │ Desvio   │  0.0456  │  0.0050  │  0.0060  │  0.134   │  0.310 │  0.148 │
+        ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤ │
+        │ RMS      │  0.0457  │  0.0060  │  0.0390  │  3.651   │  0.376 │  0.374 │
+        └──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘'''
         
-        grupo_estatisticas = QGroupBox("Estatísticas") #cria a caixa
-        layout = QVBoxLayout() #layout verrtical (por isso QV e não outro)
+        grupo_estatisticas = QGroupBox("Estatísticas")
+        layout = QVBoxLayout()
 
+        # Linha 1: Status e Hz
+        linha_hz = QHBoxLayout()
         self.label_status = QLabel("Status: parado")
-        self.label_hz_medio = QLabel("Hz Médio: 0.0")
-        self.label_hz_instantaneo = QLabel("Hz Instantâneo: 0.0")
-        self.label_hz_suavizado = QLabel("Hz Instantâneo Suavizado: 0.0")
+        self.label_hz_medio = QLabel("Hz Médio: 0.00")
+        self.label_hz_instantaneo = QLabel("Hz Inst: 0.00")
+        self.label_hz_suavizado = QLabel("Hz Suav: 0.00")
+        for w in (self.label_status, self.label_hz_medio, self.label_hz_instantaneo, self.label_hz_suavizado):
+            linha_hz.addWidget(w)
+        layout.addLayout(linha_hz)
+
+        # Linha 2: Contadores
+        linha_cont = QHBoxLayout()
         self.label_amostras = QLabel("Amostras: 0")
-        self.label_buffer = QLabel("Buffer: 0 / 1000")
+        self.label_buffer = QLabel("Buffer: 0 / 10000")
+        linha_cont.addWidget(self.label_amostras)
+        linha_cont.addWidget(self.label_buffer)
+        layout.addLayout(linha_cont)
 
-        # Novos labels para estatísticas do eixo Ax (usam utils.statistics.calcular_estatisticas)
-        self.label_media_ax = QLabel("Média Ax: --")
-        self.label_desvio_ax = QLabel("Desvio Ax: --")
-        self.label_rms_ax = QLabel("RMS Ax: --")
+        # Grid de estatísticas por eixo
+        self.eixos = ["ax", "ay", "az", "gx", "gy", "gz"]
+        self.unidades = {"ax": "g", "ay": "g", "az": "g", "gx": "°/s", "gy": "°/s", "gz": "°/s"}
+        self.stats_labels = {}  # {(eixo, metrica): QLabel}
 
-        #Adicionando ao layout
-        layout.addWidget(self.label_status)
-        layout.addWidget(self.label_hz_medio)
-        layout.addWidget(self.label_hz_instantaneo)
-        layout.addWidget(self.label_hz_suavizado)
-        layout.addWidget(self.label_amostras)
-        layout.addWidget(self.label_buffer)
-        layout.addWidget(self.label_media_ax)
-        layout.addWidget(self.label_desvio_ax)
-        layout.addWidget(self.label_rms_ax)
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(4)
 
-        
-        grupo_estatisticas.setLayout(layout) #adiciona o layout à caixa (grupo estatiscas)
-        self.layout.addWidget(grupo_estatisticas)# e adiciona a caixa (grupo estatiscas) à janela
+        # Cabeçalho
+        grid.addWidget(QLabel(""), 0, 0)
+        for col, eixo in enumerate(self.eixos, 1):
+            lbl = QLabel(eixo.upper())
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl.setStyleSheet("font-weight: bold; color: #88c0d0;")
+            grid.addWidget(lbl, 0, col)
+
+        # Linhas: Média, Desvio, RMS
+        metricas = [("Média", "media"), ("Desvio", "desvio_padrao"), ("RMS", "rms")]
+        for row, (nome, key) in enumerate(metricas, 1):
+            lbl_row = QLabel(nome)
+            lbl_row.setStyleSheet("font-weight: bold;")
+            grid.addWidget(lbl_row, row, 0)
+            for col, eixo in enumerate(self.eixos, 1):
+                lbl = QLabel("--")
+                lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                lbl.setMinimumWidth(70)
+                self.stats_labels[(eixo, key)] = lbl
+                grid.addWidget(lbl, row, col)
+
+        layout.addLayout(grid)
+        grupo_estatisticas.setLayout(layout)
+        self.layout.addWidget(grupo_estatisticas)
 
 
     def criar_barra_botoes(self):
@@ -259,7 +264,7 @@ class Janela(QMainWindow):
         self.botao_iniciar = QPushButton("Iniciar")
         self.botao_parar = QPushButton("Parar")
         self.botao_limpar = QPushButton("Limpar")
-        self.botao_auto_escala = QPushButton("Auto Escala")
+        self.botao_auto_escala = QPushButton("Auto Scroll: OFF")
 
         #Adicionando ao layout
         layout.addWidget(self.botao_iniciar)
@@ -272,58 +277,29 @@ class Janela(QMainWindow):
             
         self.botao_parar.clicked.connect(self.parar) 
             
-
         self.botao_limpar.clicked.connect(self.limpar_grafico)
           
-
         self.botao_auto_escala.clicked.connect(self.autoescala)
-            
-
 
         self.layout.addLayout(layout) #adiciona o layout à janela
 
 
-
-
-    
 # Controle
     def criar_timer(self):
-        ''' Função: executar periodicamente determinadas funções em intervalos regulares de tempo. No projeto, a cada 100 ms atualizar o gráfico e as estatísticas
-        Por que 100ms? 1000ms / 100ms = 10Hz, ou 10 FPS - suficiente para visualização fluida sem sobrecarregar a UI'''
+        ''' Timer gráfico: 30 FPS (33ms). Timer estatísticas: 2 FPS (500ms).'''
         
-        self.timer = QTimer()
-
-        #conectar o timer ao método atualizar_grafico
-        self.timer.timeout.connect(self.atualizar_grafico)
-
-        #conectar o timer ao método atualizar_estatitiscas
-        self.timer.timeout.connect(self.atualizar_estatisticas)
-        self.timer.start(INTERVALO_GRAFICO_MS) #inicia o timer com intervalo de 100ms
-
-
-    '''
-    Usuário                                                             
-        │
-        ▼
-    Botão
-        │
-        ▼
-    Janela
-        │
-        ▼
-    SensorManager
-        │
-        ▼
-    Coletor
-        │
-        ▼
-    Serial
-        │
-        ▼
-    Arduino
-    '''
+        # Timer gráfico - 30 FPS
+        self.timer_grafico = QTimer()
+        self.timer_grafico.timeout.connect(self.atualizar_grafico)
+        self.timer_grafico.start(INTERVALO_GRAFICO_MS)
+        
+        # Timer estatísticas - 2 FPS (independente do gráfico)
+        self.timer_stats = QTimer()
+        self.timer_stats.timeout.connect(self.atualizar_estatisticas)
+        self.timer_stats.start(INTERVALO_ESTATISTICAS_MS)
 
 
+# Controle
     def iniciar(self):
         self.manager.iniciar()
         self.label_status.setText("Status: rodando")
@@ -331,7 +307,7 @@ class Janela(QMainWindow):
 
     def parar(self):
         self.manager.parar()
-        self.label_status.setText("Status: parado")
+        self.label_status.setText("Status: Parado")
 
 
     # Atualização
@@ -342,108 +318,57 @@ class Janela(QMainWindow):
         if self.manager.buffer.vazio():
             return
 
-        contador = self.manager.buffer.contador[-1]
-
-        if contador % 1000 == 0:
-            print(f"[Janela] {contador}")
-        
-        ##############################
-        #leitura dos dados armazenados
-        ###########################
-        
+        # Snapshot único
         dados = self.manager.buffer.snapshot(PONTOS_GRAFICO)
 
-        if len(dados) < 2 :
-            return
+        '''if len(dados) < 2 :
+            return'''
         
-        contadores = np.asarray(dados['contador'])
-        dados_ax = np.asarray(dados["ax"])
-        dados_ay = np.asarray(dados["ay"])
-        dados_az = np.asarray(dados["az"])
-        dados_gx = np.asarray(dados["gx"])
-        dados_gy = np.asarray(dados["gy"])
-        dados_gz = np.asarray(dados["gz"])
+        # Mapeia eixos -> (checkbox, curva, dados)
+        curvas = {
+            'ax': (self.checkbox_ax, self.curva_ax, dados['ax']),
+            'ay': (self.checkbox_ay, self.curva_ay, dados['ay']),
+            'az': (self.checkbox_az, self.curva_az, dados['az']),
+            'gx': (self.checkbox_gx, self.curva_gx, dados['gx']),
+            'gy': (self.checkbox_gy, self.curva_gy, dados['gy']),
+            'gz': (self.checkbox_gz, self.curva_gz, dados['gz']),
+        }
 
+        # X relativo (cache) - evita alocação
+        n = len(dados['contador'])
+        x = self._x_data[:n]
 
-        ##########################################
-        #atualização da curva ax
-        if self.checkbox_ax.isChecked():
-            self.curva_ax.show()
-            self.curva_ax.setData(contadores,dados_ax, skipFiniteCheck=True)
+        # Só atualiza curvas visíveis
+        for _, (check, curva, y) in curvas.items():
+            if check.isChecked():
+                curva.show()
+                curva.setData(x, np.asarray(y), skipFiniteCheck=True)
+            else:
+                curva.hide()
 
-        else:
-            self.curva_ax.hide()
-            
-        ########################
-        #atualização da curva ay
-        if self.checkbox_ay.isChecked():
-            self.curva_ay.show()
-            self.curva_ay.setData(contadores,dados_ay, skipFiniteCheck=True)
-
-        else:
-            self.curva_ay.hide()
-            
-        #########################
-        #atualização da curva az
-        if self.checkbox_az.isChecked():
-            self.curva_az.show()
-            self.curva_az.setData(contadores,dados_az, skipFiniteCheck=True)
-        else:
-            self.curva_az.hide()
-            
-        ########################
-        #atualização da curva gx
-
-        if self.checkbox_gx.isChecked():
-            self.curva_gx.show()
-            self.curva_gx.setData(contadores,dados_gx, skipFiniteCheck=True)
-        else:
-            self.curva_gx.hide()
-            
-        
-        #########################
-        #atualização da curva gy
-        if self.checkbox_gy.isChecked():
-            self.curva_gy.show()
-            self.curva_gy.setData(contadores,dados_gy, skipFiniteCheck=True)
-        else:
-            self.curva_gy.hide()
-            
-        #########################
-        #atualização da curva gz
-        if self.checkbox_gz.isChecked():
-            self.curva_gz.show()
-            self.curva_gz.setData(contadores,dados_gz, skipFiniteCheck=True)
-        else:
-            self.curva_gz.hide()
-        
-        #auto scroll
+        # Auto scroll
         if self.auto_scroll_ativo:
-            self.auto_scroll(contadores[-1])
-
-       
+            self.auto_scroll(self.manager.buffer.contador[-1])
 
 
-    def auto_scroll(self,contador_atual):
-        """
-        Responsabilidade:
-        Manter o gráfico acompanhando as amostras mais recentes.
-        """
-
-        #Verificação do Buffer
+    def auto_scroll(self, contador_atual):
+        """Auto-scroll só quando ativado pelo usuário."""
+        if not self.auto_scroll_ativo:
+            return
         if self.manager.buffer.vazio():
             return
         inicio = max(0, contador_atual - PONTOS_GRAFICO + 1)
-        self.grafico.setXRange(inicio, contador_atual, padding=0.15)
+        self.grafico.setXRange(inicio, contador_atual, padding=0.02)
 
-
-
-
+    def toggle_auto_scroll(self):
+        """Alterna auto-scroll on/off."""
+        self.auto_scroll_ativo = not self.auto_scroll_ativo
+        self.botao_auto_escala.setText("Auto Scroll: ON" if self.auto_scroll_ativo else "Auto Scroll: OFF")
 
     def autoescala(self):
-          self.grafico.enableAutoRange()
-     
-     
+        self.grafico.enableAutoRange()
+
+
     def atualizar_estatisticas(self):
 
         ####################################
@@ -464,11 +389,11 @@ class Janela(QMainWindow):
         )
 
         self.label_hz_instantaneo.setText(
-            f"Hz Instantâneo: {self.manager.coletor.hz_inst:.2f}"
+            f"Hz Inst: {self.manager.coletor.hz_inst:.2f}"
         )
 
         self.label_hz_suavizado.setText(
-            f"Hz Instantâneo Suavizado: {self.manager.coletor.hz_inst_suavizado:.2f}"
+            f"Hz Suav: {self.manager.coletor.hz_inst_suavizado:.2f}"
         )
 
         ####################################
@@ -480,21 +405,27 @@ class Janela(QMainWindow):
         )
 
         self.label_buffer.setText(
-            f"Buffer: {len(self.manager.buffer.ax)}"
+            f"Buffer: {len(self.manager.buffer.ax)} / 10000"
         )
 
-        # --- Estatísticas do eixo Ax (usam utils.statistics.calcular_estatisticas) ---
-        # Pega os últimos PONTOS_GRAFICO valores de ax do buffer
-        dados_ax = self.manager.buffer.snapshot(PONTOS_GRAFICO)["ax"]
-        est = calcular_estatisticas(dados_ax)
+        ####################################
+        # Estatísticas por eixo
+        ####################################
 
-        # Função auxiliar para formatar: mostra "--" se NaN/inf
+        # Pega snapshot uma vez
+        snap = self.manager.buffer.snapshot(PONTOS_GRAFICO)
+
         def fmt(v):
             return "--" if not math.isfinite(v) else f"{v:.4f}"
 
-        self.label_media_ax.setText(f"Média Ax: {fmt(est.media)} g")
-        self.label_desvio_ax.setText(f"Desvio Ax: {fmt(est.desvio_padrao)} g")
-        self.label_rms_ax.setText(f"RMS Ax: {fmt(est.rms)} g")
+        for eixo in self.eixos:
+            dados = snap[eixo]
+            est = calcular_estatisticas(dados)
+            unidade = self.unidades[eixo]
+            self.stats_labels[(eixo, "media")].setText(f"{fmt(est.media)} {unidade}")
+            self.stats_labels[(eixo, "desvio_padrao")].setText(f"{fmt(est.desvio_padrao)} {unidade}")
+            self.stats_labels[(eixo, "rms")].setText(f"{fmt(est.rms)} {unidade}")
+
 
     # Utilidades
     def limpar_grafico(self):
@@ -509,6 +440,15 @@ class Janela(QMainWindow):
         self.curva_gz.clear()
 
 
+    def toggle_auto_scroll(self):
+        """Alterna auto-scroll on/off."""
+        self.auto_scroll_ativo = not self.auto_scroll_ativo
+        self.botao_auto_escala.setText("Auto Scroll: ON" if self.auto_scroll_ativo else "Auto Scroll: OFF")
+
+    def autoescala(self):
+        self.grafico.enableAutoRange()
+
+
     def closeEvent(self,event):
         
         """
@@ -516,17 +456,9 @@ class Janela(QMainWindow):
         - Encerrar a aquisição antes do fechamento da aplicação.
         - Permitir que a janela seja fechada com segurança.
         """
-
-        self.manager.parar()
-
-        event.accept()  # Aceita o evento de fechamento da janela, permitindo que a aplicação seja encerrada corretamente.
-
-        '''event.ignore()
         
-        Deseja salvar antes de sair?
-
-            [Sim]
-
-            [Não]
-
-            [Cancelar]'''
+        self.timer_grafico.stop()
+        self.timer_stats.stop()
+        self.manager.parar()
+        
+        event.accept()  # Aceita o evento de fechamento da janela, permitindo que a aplicação seja encerrada corretamente.

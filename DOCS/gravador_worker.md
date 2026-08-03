@@ -152,9 +152,6 @@ print('CSV em dados/')
 
 | Arquivo | Linha | Relação |
 |---------|-------|---------|
-| `sensor/manager.py:26` | `GravadorWorker(self.fila_gravacao)` | Instanciação |
-| `sensor/manager.py:27` | `self.gravador_thread.start()` | Launch thread |
-| `sensor/manager.py:41` | `self.fila_gravacao.put(None)` | Sinal parada |
-| `sensor/manager.py:44` | `self.gravador_thread.join()` | Aguarda fim |
-| `sensor/coletor.py:58` | `fila_gravacao.put_nowait(linha)` | Produtor |
-| `sensor/gravador.py:15` | `GravadorCSV(...)` | Composição |
+| [[manager]] | - | Instanciação / Launch thread / Sinal parada / Aguarda fim |
+| [[coletor]] | - | Produtor |
+| [[gravador]] | - | Composição |

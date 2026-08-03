@@ -117,6 +117,6 @@ atualizar()
 
 | Arquivo | Relação |
 |---------|---------|
-| `realtime/main.py` | Entry point oficial (usa `janela.py`) |
-| `realtime/janela.py` | Versão completa |
-| `sensor/manager.py` | Instância global `manager` |
+| [[main]] | Entry point oficial (usa `janela.py`) |
+| [[janela]] | Versão completa |
+| [[manager]] | Instância global `manager` |

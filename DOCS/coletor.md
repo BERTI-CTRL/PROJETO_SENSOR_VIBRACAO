@@ -211,6 +211,6 @@ python -m sensor.teste_manager
 |---------|-------|---------|
 | `sensor/manager.py:12` | `self.coletor = Coletor()` | Instanciação |
 | `sensor/manager.py:29` | `Thread(target=self.coletor.executar)` | Thread launch |
-| `sensor/gravador_worker.py:15` | `GravadorWorker(fila)` | Consumidor fila |
-| `sensor/serial_reader.py` | - | Produtor dados |
-| `sensor/buffers.py` | - | Armazenamento |
+| [[gravador_worker]] | - | Consumidor fila |
+| [[serial_reader]] | - | Produtor dados |
+| [[buffers]] | - | Armazenamento |

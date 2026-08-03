@@ -47,14 +47,17 @@ class Janela(QMainWindow):
 ├─────────────────────────────────────────────────────────────┤
 │  Sinais                    │  Estatísticas                   │
 │  ☑ ax (amarelo)            │  Status: Adquirindo            │
-│  ☑ ay (verde)              │  Hz Médio: 214.56              │
-│  ☑ az (ciano)              │  Hz Instantâneo: 214.32        │
-│  ☑ gx (vermelho)           │  Hz Inst. Suavizado: 214.45    │
-│  ☑ gy (rosa)               │  Amostras: 15234               │
-│  ☑ gz (branco)             │  Buffer: 10000 / 10000         │
-│                            │  Média Ax: 0.0012 g            │
-│                            │  Desvio Ax: 0.0456 g           │
-│                            │  RMS Ax: 0.0457 g              │
+│  ☑ ay (verde)              │  Hz Médio: 214.56  Hz Inst: 214.32  Hz Suav: 214.45 │
+│  ☑ az (ciano)              │  Amostras: 15234  Buffer: 10000 / 10000          │
+│  ☑ gx (vermelho)           │  ┌──────────┬──────────┬──────────┬──────────┬──────────┬──────────┐ │
+│  ☑ gy (rosa)               │  │          │    ax    │    ay    │    az    │    gx    │    gy    │    gz    │ │
+│  ☑ gz (branco)             │  ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤ │
+│                            │  │ Média    │  0.0012  │ -0.0040  │ -0.0380  │ -3.649   │  0.214   │ -0.344   │ │
+│                            │  ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤ │
+│                            │  │ Desvio   │  0.0456  │  0.0050  │  0.0060  │  0.134   │  0.310   │  0.148   │ │
+│                            │  ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤ │
+│                            │  │ RMS      │  0.0457  │  0.0060  │  0.0390  │  3.651   │  0.376   │  0.374   │ │
+│                            │  └──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘ │
 ├─────────────────────────────────────────────────────────────┤
 │  [Iniciar] [Parar] [Limpar] [Auto Escala]                   │
 └─────────────────────────────────────────────────────────────┘
@@ -147,20 +150,33 @@ Mantém janela sempre nas amostras mais recentes.
 
 ## Painel de Estatísticas (`atualizar_estatisticas`)
 
+O painel agora exibe estatísticas para **todos os 6 eixos** (ax, ay, az, gx, gy, gz) em grid 3×6:
+
 ```python
-# Usa utils.statistics.calcular_estatisticas() no eixo Ax
-dados_ax = self.manager.buffer.snapshot(PONTOS_GRAFICO)["ax"]
-est = calcular_estatisticas(dados_ax)
+# Grid 3×6: Média/Desvio/RMS × ax,ay,az,gx,gy,gz
+self.eixos = ["ax", "ay", "az", "gx", "gy", "gz"]
+self.unidades = {"ax": "g", "ay": "g", "az": "g", "gx": "°/s", "gy": "°/s", "gz": "°/s"}
+self.stats_labels = {}  # {(eixo, metrica): QLabel}
 
-# Exibição formatada (-- se NaN/inf)
-def fmt(v): return "--" if not math.isfinite(v) else f"{v:.4f}"
+# Cria grid QGridLayout com cabeçalho + 3 linhas (Média/Desvio/RMS)
+# Atualização única por tick:
+snap = self.manager.buffer.snapshot(PONTOS_GRAFICO)
 
-self.label_media_ax.setText(f"Média Ax: {fmt(est.media)} g")
-self.label_desvio_ax.setText(f"Desvio Ax: {fmt(est.desvio_padrao)} g")
-self.label_rms_ax.setText(f"RMS Ax: {fmt(est.rms)} g")
+def fmt(v):
+    return "--" if not math.isfinite(v) else f"{v:.4f}"
+
+for eixo in self.eixos:
+    dados = snap[eixo]
+    est = calcular_estatisticas(dados)
+    unidade = self.unidades[eixo]
+    self.stats_labels[(eixo, "media")].setText(f"{fmt(est.media)} {unidade}")
+    self.stats_labels[(eixo, "desvio_padrao")].setText(f"{fmt(est.desvio_padrao)} {unidade}")
+    self.stats_labels[(eixo, "rms")].setText(f"{fmt(est.rms)} {unidade}")
 ```
 
-**Métricas exibidas:** Média, Desvio padrão, RMS, Coef. variação %, Assimetria, Curtose
+**Métricas por eixo:** Média, Desvio padrão, RMS  
+**Unidades:** g (aceleração ax/ay/az) | °/s (giroscópio gx/gy/gz)  
+**Formatação:** `--` se NaN/Inf, caso contrário 4 casas decimais
 
 ---
 
@@ -236,9 +252,9 @@ sys.exit(app.exec())
 
 | Arquivo | Linha | Relação |
 |---------|-------|---------|
-| `realtime/main.py:12` | `Janela()` | Entry point |
-| `realtime/gráfico.py` | - | UI alternativa simples |
-| `sensor/manager.py` | - | Pipeline backend |
-| `sensor/buffers.py` | - | Buffer thread-safe |
-| `utils/statistics.py` | - | Estatísticas Ax |
-| `sensor/coletor.py` | - | Métricas Hz |
+| [[main]] | - | Entry point |
+| [[grafico]] | - | UI alternativa simples |
+| [[manager]] | - | Pipeline backend |
+| [[buffers]] | - | Buffer thread-safe |
+| [[statistics]] | - | Estatísticas (todos os 6 eixos) |
+| [[coletor]] | - | Métricas Hz |

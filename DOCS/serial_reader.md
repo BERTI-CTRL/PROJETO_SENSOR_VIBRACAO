@@ -78,7 +78,7 @@ if bytes_available > 0:
 
 **Correção:** Restaurar `readline()` original (v1.0)
 
-**Documentação:** `ERROS/correcao-pulos-amostras-serial.md`
+**Documentação:** [[correcao-pulos-amostras-serial]]
 
 ---
 

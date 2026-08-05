@@ -27,7 +27,7 @@ from utils.statistics import calcular_estatisticas
 import pyqtgraph as pg
 pg.setConfigOptions(antialias=False, useOpenGL=True)  # OpenGL backend + sem antialias
 
-INTERVALO_GRAFICO_MS = 40  # aproximadamente 30 FPS
+INTERVALO_GRAFICO_MS = 33  # aproximadamente 30 FPS
 INTERVALO_ESTATISTICAS_MS = 500
 PONTOS_GRAFICO = 150
 

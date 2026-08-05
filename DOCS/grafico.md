@@ -1,5 +1,8 @@
 # realtime/gráfico.py
 
+> Este documento descreve a janela PyQt mínima de depuração. Para analisar um
+> CSV salvo com gráfico Plotly interativo, use [[plotar_csv]] (`grafico/plotar_csv.py`).
+
 **Responsabilidade:** Interface alternativa minimalista para visualização rápida (single plot, 60 FPS).  
 **Tipo:** Script executável standalone (`python realtime/gráfico.py`)  
 **Thread:** Main thread (GUI)

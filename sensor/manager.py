@@ -31,6 +31,10 @@ class SensorManager:
         self.thread.start()
 
     def parar(self):
+        # Sem thread, nao houve sessao ativa a encerrar.
+        if self.thread is None:
+            return False
+
         self.coletor.parar()
 
         if self.thread is not None:
@@ -46,6 +50,8 @@ class SensorManager:
         self.thread = None
         self.gravador_thread = None
         self.fila_gravacao = None
+
+        return True
 
     @property
     def buffer(self):

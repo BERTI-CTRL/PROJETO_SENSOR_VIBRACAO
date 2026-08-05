@@ -6,12 +6,22 @@ import serial
 import random
 
 
-def ler_dados(porta, baudrate=115200, timeout=0.1):
+def ler_dados(porta, baudrate=115200, timeout=0.1, deve_continuar=None):
+    """Lê linhas da serial enquanto a aquisição estiver ativa."""
+
+    def continuar():
+        return deve_continuar is None or deve_continuar()
 
     with serial.Serial(porta, baudrate, timeout=timeout) as arduino:
         #print("Abrindo serial...")
-    
-        time.sleep(2)
+
+        # Abertura da serial pode reiniciar o Arduino. Espera sem impedir
+        # que o botão Parar encerre a thread durante esse intervalo.
+        limite_espera = time.monotonic() + 2
+        while time.monotonic() < limite_espera:
+            if not continuar():
+                return
+            time.sleep(0.05)
 
         #print("Resetando buffer")
         arduino.reset_input_buffer() # reduzir o lixo
@@ -19,7 +29,7 @@ def ler_dados(porta, baudrate=115200, timeout=0.1):
 
         #print("Entrando no while")
         linhas_invalidas = 0
-        while True:
+        while continuar():
             #relogio do pc. É importante ressaltar que usar o tempo de pc para medir Hz - como é o caso- pode gerar erros
             #um dos erros que tive foi taxas de hz intantaneo absurdas,como >1000hz variando muito,haja vista que a leitura em buffers pode fazer o python atropelar dados
             # . O arduino oferece um método interessante

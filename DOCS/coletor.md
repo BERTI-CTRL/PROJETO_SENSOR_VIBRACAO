@@ -152,6 +152,7 @@ manager.iniciar()
 # Parada
 manager.parar()
 # 1. coletor.parar() → self.rodando = False
+#    (o leitor serial consulta esse estado entre leituras)
 # 2. thread.join() → aguarda loop terminar
 # 3. fila.put(None) → sentinela para GravadorWorker
 # 4. gravador_thread.join() → flush CSV final

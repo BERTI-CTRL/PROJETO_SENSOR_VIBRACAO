@@ -19,8 +19,8 @@ class SensorManager:
     def iniciar(self) -> None:
         """Inicia pipeline completo: fila → gravador → coletor."""
     
-    def parar(self) -> None:
-        """Para pipeline graciosamente: coletor → fila sentinela → gravador."""
+    def parar(self) -> bool:
+        """Para pipeline graciosamente e informa se havia uma sessão ativa."""
     
     @property
     def buffer(self) -> BufferSensores:
@@ -66,6 +66,8 @@ manager = SensorManager()
 ┌─────────────────────────────────────────────────────────────┐
 │ SensorManager.parar()                                       │
 ├─────────────────────────────────────────────────────────────┤
+│ if self.thread is None: return False                        │
+│                                                             │
 │ self.coletor.parar()       # Seta rodando=False             │
 │                                                             │
 │ if self.thread:                                          │
@@ -82,6 +84,7 @@ manager = SensorManager()
 │ self.thread = None                                        │
 │ self.gravador_thread = None                               │
 │ self.fila_gravacao = None                                 │
+│ return True                                                 │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -95,7 +98,7 @@ manager = SensorManager()
 | Threads `daemon=True` | Programa encerra mesmo se join falhar (segurança) |
 | `configurar_fila_gravacao()` | Injeção de dependência → Coletor não cria Queue |
 | Instância global `manager` | Acesso simples: `from sensor.manager import manager` |
-| `parar()` idempotente | Seguro chamar múltiplas vezes |
+| `parar()` idempotente | Seguro chamar múltiplas vezes; retorna `False` se não havia sessão |
 
 ---
 
@@ -129,7 +132,7 @@ class Janela(QMainWindow):
         self.manager.parar()
     
     def atualizar_grafico(self):
-        dados = self.manager.buffer.snapshot(250)
+        dados = self.manager.buffer.snapshot(150)
         # ...
 ```
 

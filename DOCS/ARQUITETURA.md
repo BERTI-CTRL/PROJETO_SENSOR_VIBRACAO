@@ -1,5 +1,12 @@
 # Documentação do Projeto - Sensor de Vibração MPU6050
 
+> **Atualização de interface (04/08/2026):** `realtime/janela.py` usa dois
+> `PlotWidget`: aceleração (`ax`, `ay`, `az`) e giroscópio (`gx`, `gy`, `gz`).
+> O redesenho usa as últimas 150 amostras a cada 33 ms; as estatísticas são
+> atualizadas em timer separado a cada 500 ms. Para análise posterior de um
+> arquivo salvo, use `grafico/plotar_csv.py`. Consulte [[janela]] e
+> [[plotar_csv]] para a referência atual desses componentes.
+
 **Versão:** 1.0  
 **Data:** 31/07/2026  
 **Projeto:** PROJETO_SENSOR_VIBRACAO  
@@ -37,7 +44,7 @@
                                                │       Interface (PyQt6)        │
                                                │  realtime/janela.py            │
                                                │  - Timer 200ms (5 FPS)         │
-                                               │  - buffer.snapshot(250)        │
+                                               │  - buffer.snapshot(150)        │
                                                │  - pyqtgraph PlotWidget        │
                                                └────────────────────────────────┘
 ```
@@ -170,7 +177,7 @@ class SensorManager:
 ```python
 class Janela(QMainWindow):
     INTERVALO_GRAFICO_MS = 200    # 5 FPS
-    PONTOS_GRAFICO = 250          # Pontos por frame
+    PONTOS_GRAFICO = 150          # Pontos por frame
     
     def criar_timer(self):
         self.timer = QTimer()
@@ -181,7 +188,7 @@ class Janela(QMainWindow):
     def atualizar_grafico(self):
         if self.manager.buffer.vazio(): return
         dados = self.manager.buffer.snapshot(PONTOS_GRAFICO)
-        contadores = np.arange(len(dados['contador']))  # 0,1,2... (relativo)
+        contadores = np.arange(len(dados['contador']))  # eixo X relativo reutilizado
         if self.checkbox_ax.isChecked():
             self.curva_ax.setData(contadores, np.asarray(dados["ax"]), skipFiniteCheck=True)
         # ... ay, az, gx, gy, gz
@@ -193,8 +200,8 @@ class Janela(QMainWindow):
         # Estatísticas Ax via utils.statistics.calcular_estatisticas()
 ```
 - **5 FPS** (200ms) → balanceia fluidez vs CPU
-- **250 pontos** por frame → janela ~1.2s a 215 Hz
-- **Eixo X relativo** (0..249) → evita "pulo" visual do contador absoluto
+- **150 pontos** por frame → janela ~0,7s a 215 Hz
+- **Eixo X relativo reutilizado** → evita reposicionar a faixa visual em todo frame
 - **pyqtgraph** → rendering GPU acelerado
 
 ---
@@ -299,7 +306,7 @@ streamlit run home.py
 | Taxa aquisição | ~215 Hz | Limitado por I2C + Serial |
 | Buffer circular | 10.000 amostras | ~46s de histórico |
 | FPS interface | 5 FPS (200ms) | Configurável em `janela.py` |
-| Pontos/frame | 250 | ~1.16s de janela visual |
+| Pontos/frame | 150 | ~0.70s de janela visual |
 | Batch CSV | 1.000 linhas | Escrita assíncrona |
 | Fila gravação | 50.000 itens | Buffer de pico |
 | Uso CPU (UI) | ~2-5% | pyqtgraph otimizado |

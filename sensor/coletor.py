@@ -92,6 +92,7 @@ class Coletor:
         for tempo_arduino_us, timestamp, contador, ax, ay, az, gx, gy, gz in ler_dados(
             porta=self.porta,
             baudrate=self.baudrate,
+            deve_continuar=lambda: self.rodando,
         ):
             if not self.rodando:
                 print("Parando")

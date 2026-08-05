@@ -62,15 +62,21 @@ class BufferSensores:
                     for i, coluna in enumerate(self.COLUNAS)
                 }
             else:
-                # Buffer cheio + wrap-around: ordem cronológica = _index até fim, depois 0 até _index-1
-                # Pegar últimos 'quantidade' elementos dessa sequência cronológica
-                dados_cronologicos = np.concatenate([
-                    self._dados[self._index:, :],
-                    self._dados[:self._index, :]
-                ])
-                inicio = len(dados_cronologicos) - quantidade
+                # Buffer cheio: copia somente a janela pedida, sem montar
+                # as 10.000 amostras inteiras a cada atualização da UI.
+                inicio = (self._index - quantidade) % self.tamanho_maximo
+                fim = inicio + quantidade
+
+                if fim <= self.tamanho_maximo:
+                    dados_cronologicos = self._dados[inicio:fim, :]
+                else:
+                    dados_cronologicos = np.concatenate([
+                        self._dados[inicio:, :],
+                        self._dados[:fim - self.tamanho_maximo, :]
+                    ])
+
                 return {
-                    coluna: dados_cronologicos[inicio:, i].copy()
+                    coluna: dados_cronologicos[:, i].copy()
                     for i, coluna in enumerate(self.COLUNAS)
                 }
 

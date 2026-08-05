@@ -1,5 +1,10 @@
 # sensor/buffers.py
 
+> **Uso atual na interface:** `Janela` solicita `snapshot(150)` para desenhar
+> os gráficos e para calcular as estatísticas. O intervalo gráfico atual é
+> 33 ms; isso não altera a capacidade total do buffer, que permanece em 10.000
+> amostras.
+
 **Responsabilidade:** Buffer circular thread-safe para armazenar histórico de amostras do MPU6050 com acesso otimizado via NumPy.  
 **Tipo:** Classe `BufferSensores`  
 **Thread-Safety:** Lock interno (`threading.Lock`) em todas as operações públicas
@@ -167,7 +172,7 @@ def ax(self): return self._get_coluna_slice(3)
 
 **Sintoma:** Janela mostrava contador fixo em 10000, gráfico parado.
 
-**Correção:** Implementar `_get_coluna_slice()` com `np.concatenate([_index:, :_index])` e `snapshot()` montar array cronológico antes de fatiar.
+**Correção:** Implementar `_get_coluna_slice()` com `np.concatenate([_index:, :_index])` e fazer `snapshot()` montar apenas a janela cronológica solicitada. Assim, a interface não copia as 10.000 amostras quando precisa desenhar somente 150.
 
 **Documentação:** [[correcao-buffer-congelando-wrap-around]]
 
@@ -180,7 +185,7 @@ def ax(self): return self._get_coluna_slice(3)
 | `adicionar()` | O(1) | ~0.5 µs |
 | `vazio()` | O(1) | ~0.1 µs |
 | `tamanho_atual()` | O(1) | ~0.1 µs |
-| `snapshot(k)` | O(k) copy | ~50 µs (k=250) |
+| `snapshot(k)` | O(k) copy | ~50 µs (k=150) |
 | Propriedades (ex: `buffer.ax`) | O(n) copy | ~200 µs (n=10000) |
 
 **Nota:** Propriedades fazem cópia completa (`np.ndarray.copy()`). Para UI frequente, prefira `snapshot(quantidade)` que copia só o necessário.
@@ -190,10 +195,9 @@ def ax(self): return self._get_coluna_slice(3)
 ## Uso na UI (`realtime/janela.py`)
 
 ```python
-# Atualização gráfica (5 FPS = 200ms)
-dados = self.manager.buffer.snapshot(PONTOS_GRAFICO)  # 250 pontos
-contadores = np.arange(len(dados['contador']))        # Eixo X relativo 0..249
-self.curva_ax.setData(contadores, np.asarray(dados["ax"]), skipFiniteCheck=True)
+# Atualização gráfica (~30 FPS = 33ms)
+dados = self.manager.buffer.snapshot(PONTOS_GRAFICO)  # 150 pontos
+self.curva_ax.setData(dados['contador'], np.asarray(dados["ax"]), skipFiniteCheck=True)
 
 # Estatísticas (0.5 Hz = 500ms)
 dados_ax = self.manager.buffer.snapshot(PONTOS_GRAFICO)["ax"]

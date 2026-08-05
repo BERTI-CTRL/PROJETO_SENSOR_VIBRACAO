@@ -27,9 +27,14 @@ from utils.statistics import calcular_estatisticas
 import pyqtgraph as pg
 pg.setConfigOptions(antialias=False, useOpenGL=True)  # OpenGL backend + sem antialias
 
-INTERVALO_GRAFICO_MS = 33
+INTERVALO_GRAFICO_MS = 40  # aproximadamente 30 FPS
 INTERVALO_ESTATISTICAS_MS = 500
 PONTOS_GRAFICO = 150
+
+INTERVALO_EIXO_Y_ACELERAÇÃO = (-40,40)#g
+INTERVALO_EIXO_Y_GIROSCÓPIO = (-50,50)#°/s
+
+MOUSE_ATIVADO = False  # permite zoom e pan com o mouse
 
 EIXOS = ("ax", "ay", "az", "gx", "gy", "gz")
 CORES = {"ax": "y", "ay": "g", "az": "c", "gx": "r", "gy": "m", "gz": "w"}
@@ -68,7 +73,10 @@ class Janela(QMainWindow):
 
         #Widgets
 
-        self.grafico = None
+        # Cada tipo de medida usa seu proprio grafico porque aceleracao (g)
+        # e velocidade angular (graus/s) possuem unidades e escalas diferentes.
+        self.grafico_aceleracao = None
+        self.grafico_giroscopio = None
         self.curva_ax = None
         self.curva_ay = None
         self.curva_az = None
@@ -76,11 +84,12 @@ class Janela(QMainWindow):
         self.curva_gy = None
         self.curva_gz = None
 
+        # Eixo X relativo reutilizado a cada atualização. Isso evita mover
+        # a faixa de visualização e reduz o custo de renderização.
+        self._x_data = np.arange(PONTOS_GRAFICO)
+
         self.criar_interface()
         self.criar_timer()
-
-        self.auto_scroll_ativo = False
-        self._x_data = np.arange(PONTOS_GRAFICO)
     # Interface
     def criar_interface(self):
         central = QWidget()
@@ -103,32 +112,48 @@ class Janela(QMainWindow):
     def criar_grafico(self):
                                   
         ''' Responsabilidades:
-        - Criar o PlotWidget.
-        - Configurar a aparência do gráfico.
-        - Criar as curvas que representarão os sinais do MPU6050.'''
+        - Criar um PlotWidget para aceleracao e outro para o giroscopio.
+        - Configurar a aparencia dos dois graficos.
+        - Criar as curvas que representarao os sinais do MPU6050.'''
                                       
 
-        # Criando o PlotWidget com OpenGL
-        self.grafico = pg.PlotWidget(enableMenu=False)  # disable context menu
-        self.grafico.setBackground("k")
-        self.grafico.showGrid(x=True, y=True, alpha=0.3)
-        self.grafico.setLabel("left", "Aceleração (g)")
-        self.grafico.setLabel("bottom", "Amostras (n)")
-        self.grafico.setMouseEnabled(x=False, y=False)  # disable mouse zoom/pan
-        self.layout.addWidget(self.grafico)
+        # Criando o PlotWidget da aceleracao com OpenGL
+        self.grafico_aceleracao = pg.PlotWidget(enableMenu=False)  # disable context menu
+        self.grafico_aceleracao.setBackground("k")
+        self.grafico_aceleracao.showGrid(x=True, y=True, alpha=0.3)
+        self.grafico_aceleracao.setLabel("left", "Aceleração (g)")
+        self.grafico_aceleracao.setLabel("bottom", "Amostras (n)")
+        self.grafico_aceleracao.setMouseEnabled(x=MOUSE_ATIVADO, y=MOUSE_ATIVADO)  # disable mouse zoom/pan
+        self.layout.addWidget(self.grafico_aceleracao)
 
-        # Desabilita auto-range (causa lag)
-        self.grafico.setAutoRange(x=False, y=False)
-        self.grafico.setXRange(0, PONTOS_GRAFICO, padding=0)
-        self.grafico.setYRange(-20, 20, padding=0)  # fixed range
+        # Desabilita auto-range (causa lag) e usa uma escala propria para aceleracao
+        self.grafico_aceleracao.enableAutoRange(x=False, y=False)
+        self.grafico_aceleracao.setXRange(0, PONTOS_GRAFICO, padding=0)
+        self.grafico_aceleracao.setYRange(INTERVALO_EIXO_Y_ACELERAÇÃO[0], INTERVALO_EIXO_Y_ACELERAÇÃO[1], padding=0)  # fixed range em g
 
-        # Curvas com render otimizado
-        self.curva_ax = self.grafico.plot(pen=pg.mkPen("y", width=1), name="Ax")
-        self.curva_ay = self.grafico.plot(pen=pg.mkPen("g", width=1), name="Ay")
-        self.curva_az = self.grafico.plot(pen=pg.mkPen("c", width=1), name="Az")
-        self.curva_gx = self.grafico.plot(pen=pg.mkPen("r", width=1), name="Gx")
-        self.curva_gy = self.grafico.plot(pen=pg.mkPen("m", width=1), name="Gy")
-        self.curva_gz = self.grafico.plot(pen=pg.mkPen("w", width=1), name="Gz")
+        # Curvas de aceleracao com render otimizado
+        self.curva_ax = self.grafico_aceleracao.plot(pen=pg.mkPen("y", width=1), name="Ax")
+        self.curva_ay = self.grafico_aceleracao.plot(pen=pg.mkPen("g", width=1), name="Ay")
+        self.curva_az = self.grafico_aceleracao.plot(pen=pg.mkPen("c", width=1), name="Az")
+
+        # Criando o segundo PlotWidget somente para os dados do giroscopio
+        self.grafico_giroscopio = pg.PlotWidget(enableMenu=False)  # disable context menu
+        self.grafico_giroscopio.setBackground("k")
+        self.grafico_giroscopio.showGrid(x=True, y=True, alpha=0.3)
+        self.grafico_giroscopio.setLabel("left", "Velocidade angular (°/s)")
+        self.grafico_giroscopio.setLabel("bottom", "Amostras (n)")
+        self.grafico_giroscopio.setMouseEnabled(x=MOUSE_ATIVADO, y=MOUSE_ATIVADO)  # disable mouse zoom/pan
+        self.layout.addWidget(self.grafico_giroscopio)
+
+        # O giroscopio recebe uma escala diferente da aceleracao
+        self.grafico_giroscopio.enableAutoRange(x=False, y=False)
+        self.grafico_giroscopio.setXRange(0, PONTOS_GRAFICO, padding=0)
+        self.grafico_giroscopio.setYRange(INTERVALO_EIXO_Y_GIROSCÓPIO[0], INTERVALO_EIXO_Y_GIROSCÓPIO[1], padding=0)  # fixed range em graus/s
+
+        # Curvas do giroscopio com render otimizado
+        self.curva_gx = self.grafico_giroscopio.plot(pen=pg.mkPen("r", width=1), name="Gx")
+        self.curva_gy = self.grafico_giroscopio.plot(pen=pg.mkPen("m", width=1), name="Gy")
+        self.curva_gz = self.grafico_giroscopio.plot(pen=pg.mkPen("w", width=1), name="Gz")
 
 
     def criar_painel_sinais(self):
@@ -229,10 +254,12 @@ class Janela(QMainWindow):
 
         # Linhas: Média, Desvio, RMS
         metricas = [("Média", "media"), ("Desvio", "desvio_padrao"), ("RMS", "rms")]
+
         for row, (nome, key) in enumerate(metricas, 1):
             lbl_row = QLabel(nome)
             lbl_row.setStyleSheet("font-weight: bold;")
             grid.addWidget(lbl_row, row, 0)
+
             for col, eixo in enumerate(self.eixos, 1):
                 lbl = QLabel("--")
                 lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -246,7 +273,7 @@ class Janela(QMainWindow):
 
 
     def criar_barra_botoes(self):
-        ''' O que queremos construir é uma barra de botões que permita iniciar, parar, limpar e auto escalar o gráfico. 
+        ''' O que queremos construir é uma barra de botões que permita iniciar, parar, limpar e auto escalar o gráfico.
         Responsabilidades:
         - Criar os botões de controle.
         - Organizar os botões horizontalmente.
@@ -264,7 +291,7 @@ class Janela(QMainWindow):
         self.botao_iniciar = QPushButton("Iniciar")
         self.botao_parar = QPushButton("Parar")
         self.botao_limpar = QPushButton("Limpar")
-        self.botao_auto_escala = QPushButton("Auto Scroll: OFF")
+        self.botao_auto_escala = QPushButton("Auto Escala")
 
         #Adicionando ao layout
         layout.addWidget(self.botao_iniciar)
@@ -306,13 +333,34 @@ class Janela(QMainWindow):
 
 
     def parar(self):
-        self.manager.parar()
+        # manager.parar() informa se havia uma aquisicao ativa para encerrar.
+        houve_amostras = self.manager.coletor.numero_amostras > 0
+        encerrou_aquisicao = self.manager.parar()
         self.label_status.setText("Status: Parado")
+
+        # So abre o Plotly quando a sessao encerrada realmente produziu dados.
+        # Assim, um clique em Parar sem coleta nao reabre um CSV antigo.
+        if not encerrou_aquisicao or not houve_amostras:
+            return
+
+        from grafico.plotar_csv import csv_mais_recente, plotar_csv
+        from pathlib import Path
+
+        pasta_dados = Path(__file__).parents[1] / "dados"
+
+        try:
+            arquivo_csv = csv_mais_recente(pasta_dados)
+        except FileNotFoundError:
+            self.label_status.setText("Status: Parado (nenhum CSV encontrado)")
+            return
+
+        plotar_csv(arquivo_csv)
+
 
 
     # Atualização
     def atualizar_grafico(self):
-        '''Responsabiliade: ler o estado atual do buffer e desenhar as curvas selecionadas e Atualizar o auto scroll (caso esteja habilitado).'''
+        '''Responsabiliade: ler o estado atual do buffer e desenhar as curvas selecionadas.'''
 
         #Verificação do Buffer
         if self.manager.buffer.vazio():
@@ -334,9 +382,9 @@ class Janela(QMainWindow):
             'gz': (self.checkbox_gz, self.curva_gz, dados['gz']),
         }
 
-        # X relativo (cache) - evita alocação
-        n = len(dados['contador'])
-        x = self._x_data[:n]
+        # X relativo reutilizado: evita criar um novo array e reposicionar
+        # o eixo X em todo frame.
+        x = self._x_data[:len(dados['contador'])]
 
         # Só atualiza curvas visíveis
         for _, (check, curva, y) in curvas.items():
@@ -346,27 +394,13 @@ class Janela(QMainWindow):
             else:
                 curva.hide()
 
-        # Auto scroll
-        if self.auto_scroll_ativo:
-            self.auto_scroll(self.manager.buffer.contador[-1])
-
-
-    def auto_scroll(self, contador_atual):
-        """Auto-scroll só quando ativado pelo usuário."""
-        if not self.auto_scroll_ativo:
-            return
-        if self.manager.buffer.vazio():
-            return
-        inicio = max(0, contador_atual - PONTOS_GRAFICO + 1)
-        self.grafico.setXRange(inicio, contador_atual, padding=0.02)
-
-    def toggle_auto_scroll(self):
-        """Alterna auto-scroll on/off."""
-        self.auto_scroll_ativo = not self.auto_scroll_ativo
-        self.botao_auto_escala.setText("Auto Scroll: ON" if self.auto_scroll_ativo else "Auto Scroll: OFF")
-
     def autoescala(self):
-        self.grafico.enableAutoRange()
+        # A autoescala acompanha somente o eixo Y. O X continua fixo em
+        # 0..149, portanto nao ha o custo de reposicionar o grafico.
+        # Como as curvas recebem dados a cada 33 ms, o Y sera reajustado
+        # junto com elas, aproximadamente a 30 FPS.
+        for grafico in (self.grafico_aceleracao, self.grafico_giroscopio):
+            grafico.enableAutoRange(x=False, y=True)
 
 
     def atualizar_estatisticas(self):
@@ -405,7 +439,7 @@ class Janela(QMainWindow):
         )
 
         self.label_buffer.setText(
-            f"Buffer: {len(self.manager.buffer.ax)} / 10000"
+            f"Buffer: {self.manager.buffer.tamanho_atual()} / 10000"
         )
 
         ####################################
@@ -438,16 +472,6 @@ class Janela(QMainWindow):
         self.curva_gx.clear()
         self.curva_gy.clear()
         self.curva_gz.clear()
-
-
-    def toggle_auto_scroll(self):
-        """Alterna auto-scroll on/off."""
-        self.auto_scroll_ativo = not self.auto_scroll_ativo
-        self.botao_auto_escala.setText("Auto Scroll: ON" if self.auto_scroll_ativo else "Auto Scroll: OFF")
-
-    def autoescala(self):
-        self.grafico.enableAutoRange()
-
 
     def closeEvent(self,event):
         

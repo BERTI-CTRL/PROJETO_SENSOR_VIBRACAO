@@ -1,5 +1,9 @@
 # utils/statistics.py
 
+> **Uso atual na interface:** a cada 500 ms, `Janela` calcula média, desvio
+> padrão e RMS para todos os seis eixos usando as últimas 150 amostras do
+> buffer. Veja [[janela]].
+
 **Responsabilidade:** Cálculo de estatísticas descritivas para sinais de vibração (eixo único).  
 **Tipo:** Módulo puro (funções + dataclass) - **sem side effects**, **thread-safe**  
 **Uso:** `realtime/janela.py` para painel de estatísticas do eixo Ax
@@ -154,7 +158,7 @@ invalidas = amostras.size - validas.size
 
 ```python
 # Em atualizar_estatisticas() - chamado a cada 500ms
-dados_ax = self.manager.buffer.snapshot(PONTOS_GRAFICO)["ax"]  # 250 pontos
+dados_ax = self.manager.buffer.snapshot(PONTOS_GRAFICO)["ax"]  # 150 pontos
 est = calcular_estatisticas(dados_ax)
 
 def fmt(v):
@@ -169,7 +173,7 @@ self.label_rms_ax.setText(f"RMS Ax: {fmt(est.rms)} g")
 
 ## Performance
 
-| Operação | Tempo (250 amostras) |
+| Operação | Tempo (150 amostras) |
 |----------|---------------------|
 | `np.asarray` + `isfinite` | ~50 µs |
 | `mean`, `std`, `median` | ~30 µs |

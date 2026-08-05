@@ -1,5 +1,9 @@
 # realtime/main.py
 
+> **Interface atual:** a `Janela` criada por este ponto de entrada contém dois
+> gráficos: aceleração e giroscópio. Eles usam timers separados: 33 ms para
+> redesenho e 500 ms para estatísticas. Veja [[janela]].
+
 **Responsabilidade:** Entry point da aplicação PyQt6 - inicializa QApplication e exibe a janela principal.  
 **Tipo:** Script executável (`python -m realtime.main`)  
 **Thread:** Main thread (GUI)

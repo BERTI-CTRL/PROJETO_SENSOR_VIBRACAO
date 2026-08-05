@@ -9,7 +9,8 @@
 ## Interface Pública
 
 ```python
-def ler_dados(porta: str, baudrate: int = 115200, timeout: float = 0.1) -> Generator[Tuple]:
+def ler_dados(porta: str, baudrate: int = 115200, timeout: float = 0.1,
+              deve_continuar: Callable[[], bool] | None = None) -> Generator[Tuple]:
     """
     Generator que lê linhas da serial e yield tuplas parseadas.
     
@@ -31,12 +32,12 @@ def ler_dados_fake() -> Generator[Tuple]:
 ```
 ┌─────────────────────┐
 │ serial.Serial()     │  ──▶ Abre porta, configura baudrate/timeout
-│ time.sleep(2)       │  ──▶ Aguarda Arduino resetar (DTR/RTS)
+│ espera cancelável 2s│  ──▶ Aguarda Arduino resetar (DTR/RTS)
 │ reset_input_buffer()│  ──▶ Limpa lixo inicial
 └─────────┬───────────┘
           ▼
 ┌─────────────────────┐
-│ while True:         │
+│ while deve_continuar(): │
 │   timestamp = perf_counter()  (tempo PC alta resolução)
 │   linha = readline().decode().strip()
 │   if not linha: continue
@@ -59,6 +60,7 @@ def ler_dados_fake() -> Generator[Tuple]:
 | Validação `len(campos) == 8` | Filtra linhas parciais/corrompidas |
 | `map(float, ...)` em try/except | Captura `ValueError` de parsing |
 | Generator (`yield`) | **Lazy evaluation** - não acumula memória, stream direto para coletor |
+| `deve_continuar` + `timeout=0.1` | Permite ao botão Parar encerrar o leitor mesmo sem linhas válidas; a espera máxima é o timeout serial |
 
 ---
 

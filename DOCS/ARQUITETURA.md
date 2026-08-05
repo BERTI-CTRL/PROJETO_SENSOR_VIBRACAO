@@ -1,324 +1,121 @@
-# Documentação do Projeto - Sensor de Vibração MPU6050
+# Arquitetura do projeto
 
-> **Atualização de interface (04/08/2026):** `realtime/janela.py` usa dois
-> `PlotWidget`: aceleração (`ax`, `ay`, `az`) e giroscópio (`gx`, `gy`, `gz`).
-> O redesenho usa as últimas 150 amostras a cada 33 ms; as estatísticas são
-> atualizadas em timer separado a cada 500 ms. Para análise posterior de um
-> arquivo salvo, use `grafico/plotar_csv.py`. Consulte [[janela]] e
-> [[plotar_csv]] para a referência atual desses componentes.
+Este documento explica o caminho real de uma amostra, do MPU6050 até a janela e o gráfico Plotly.
 
-**Versão:** 1.0  
-**Data:** 31/07/2026  
-**Projeto:** PROJETO_SENSOR_VIBRACAO  
+## Visão do fluxo
 
----
-
-## Visão Geral da Arquitetura
-
-```
-┌─────────────┐     Serial (115200 baud)      ┌──────────────────────────────────────┐
-│   Arduino   │ ─────────────────────────────▶ │           Python Backend             │
-│  (MPU6050)  │  contador, micros(), ax,ay,az, │  ┌────────────────────────────────┐  │
-│             │  gx,gy,gz (CSV linha)          │  │ serial_reader.py               │  │
-└─────────────┘                                │  │  - readline() + parse CSV      │  │
-                                               │  │  - yield (t_arduino, t_pc, ...)│  │
-                                               │  └──────────────┬─────────────────┘  │
-                                               │             ▼                        │
-                                               │  ┌────────────────────────────────┐  │
-                                               │  │ coletor.py (Thread)            │  │
-                                               │  │  - Consome serial_reader       │  │
-                                               │  │  - Detecta saltos no contador  │  │
-                                               │  │  - Calcula Hz médio/instant    │  │
-                                               │  │  - buffer.adicionar()          │  │
-                                               │  │  - fila_gravacao.put()         │  │
-                                               │  └──────┬──────────────┬──────────┘  │
-                                               │       ▼              ▼              │
-                                               │ ┌────────────┐  ┌───────────────┐  │
-                                               │ │ buffers.py │  │gravador_worker│  │
-                                               │ │ BufferSensores     │  (Thread)     │  │
-                                               │ │ (NumPy 2D)       │  GravadorCSV  │  │
-                                               │ └────────────┘  └───────────────┘  │
-                                               └──────────────┬─────────────────────┘
-                                                              ▼
-                                               ┌────────────────────────────────┐
-                                               │       Interface (PyQt6)        │
-                                               │  realtime/janela.py            │
-                                               │  - Timer 200ms (5 FPS)         │
-                                               │  - buffer.snapshot(150)        │
-                                               │  - pyqtgraph PlotWidget        │
-                                               └────────────────────────────────┘
+```text
+MPU6050
+  ↓ I²C
+arduino/mpu-6050/mpu-6050.ino
+  ↓ serial: contador, tempo, ax, ay, az, gx, gy, gz
+sensor/serial_reader.py
+  ↓ tupla Python
+sensor/coletor.py  (thread coletor-serial)
+  ├─→ sensor/buffers.py → realtime/janela.py
+  └─→ Queue → sensor/gravador_worker.py → sensor/gravador.py → dados/*.csv
+                                                               ↓
+                                                     grafico/plotar_csv.py
 ```
 
----
+## 1. Arduino e protocolo serial
 
-## Fluxo de Dados Completo
+O firmware configura o MPU6050 em `±16 g` e `±2000 °/s`, lê os 14 bytes consecutivos do sensor e envia uma linha por amostra:
 
-### 1. Arduino (`arduino/mpu-6050/mpu-6050.ino`)
-- Inicializa MPU6050 via I2C (endereço 0x68)
-- Configura: Acelerômetro ±16g, Giroscópio ±2000°/s
-- Loop: Lê 14 bytes I2C → converte → envia linha CSV serial
-- Formato: `contador,micros(),ax,ay,az,gx,gy,gz\n`
-- Baud rate: **115200**
-- Taxa real: **~215 Hz**
-
-### 2. Leitura Serial (`sensor/serial_reader.py`)
-```python
-def ler_dados(porta, baudrate=115200, timeout=0.1):
-    with serial.Serial(porta, baudrate, timeout=timeout) as arduino:
-        time.sleep(2)           # Reset Arduino
-        arduino.reset_input_buffer()
-        while True:
-            timestamp = time.perf_counter()
-            linha = arduino.readline().decode('utf-8', errors='ignore').strip()
-            if not linha: continue
-            campos = linha.split(",")
-            if len(campos) != 8: continue
-            contador, t_arduino, ax, ay, az, gx, gy, gz = map(float, campos)
-            yield (t_arduino, timestamp, contador, ax, ay, az, gx, gy, gz)
-```
-- **`readline()`** bloqueia até `\n` → garante linha completa
-- **timeout=0.1s** evita travamento
-- **errors='ignore'** descarta bytes inválidos
-- Retorna **generator** com tuplas tipadas
-
-### 3. Coleta (`sensor/coletor.py` - Thread `coletor-serial`)
-```python
-def executar(self):
-    for t_arduino, t_pc, contador, ax, ay, az, gx, gy, gz in ler_dados(...):
-        if not self.rodando: break
-        self._registrar_salto(contador)      # Detecta contador não sequencial
-        self._calcular_hz(t_arduino)         # Hz médio + instantâneo
-        self.buffer.adicionar(...)           # Thread-safe
-        self._enfileirar_gravacao([...])     # Non-blocking para CSV
-```
-- Roda em **thread separada** (daemon)
-- Detecta **saltos no contador** → amostras perdidas na serial
-- Calcula **Hz médio** (desde início) e **Hz instantâneo** (entre amostras)
-- **Non-blocking** para gravação CSV (usa `Queue.put_nowait()`)
-
-### 4. Buffer Circular (`sensor/buffers.py` - `BufferSensores`)
-```python
-class BufferSensores:
-    # Array 2D NumPy: (10000, 9) [t_arduino, t_pc, contador, ax, ay, az, gx, gy, gz]
-    def adicionar(self, ...):
-        with self._lock:
-            self._dados[self._index] = [...]
-            self._index = (self._index + 1) % self.tamanho_maximo
-            if self._count < self.tamanho_maximo: self._count += 1
-    
-    def _get_coluna_slice(self, idx):  # WRAP-AROUND CORRETO
-        if self._count < self.tamanho_maximo:
-            return self._dados[:self._count, idx]
-        return np.concatenate([self._dados[self._index:, idx], self._dados[:self._index, idx]])
-    
-    @property
-    def contador(self): return self._get_coluna_slice(2)
-    # ... ax, ay, az, gx, gy, gz, t_arduino, t_pc
-    
-    def snapshot(self, qtd=None):      # Ordem cronológica sempre
-        if self._count < self.tamanho_maximo:
-            inicio = self._count - qtd
-            return {col: self._dados[inicio:self._count, i].copy() ...}
-        # Buffer cheio: monta array cronológico antes de fatiar
-        dados_cron = np.concatenate([self._dados[self._index:], self._dados[:self._index]])
-        return {col: dados_cron[-qtd:, i].copy() ...}
-```
-- **Array 2D NumPy** único (performance + memória)
-- **Thread-safe** com `Lock`
-- **Wrap-around correto**: propriedades e `snapshot()` retornam ordem **cronológica** (antigo → novo)
-- **Compatível** com código existente: `buffer.ax`, `buffer.contador[-1]`, `len(buffer.ax)`
-
-### 5. Gravação CSV (`sensor/gravador_worker.py` + `sensor/gravador.py`)
-```python
-class GravadorWorker(Thread):          # Thread daemon 'gravador-csv'
-    def run(self):
-        gravador = GravadorCSV()
-        while True:
-            linha = self.fila.get()
-            if linha is None: break    # Sentinela de parada
-            gravador.salvar(linha)     # Buffer interno 1000 linhas
-            self.fila.task_done()
-
-class GravadorCSV:
-    def salvar(self, linha):
-        self.buffer.append(linha)
-        if len(self.buffer) >= self.tamanho_buffer:
-            self.writer.writerows(self.buffer)
-            self.buffer.clear()
-    def fechar(self):                  # Flush final
-        if self.buffer: self.writer.writerows(self.buffer)
-        self.f.close()
-```
-- **Thread dedicada** → nunca bloqueia aquisição serial
-- **Batch write** (1000 linhas) → performance de disco
-- **Arquivo único por sessão**: `dados/dados_aceleracao_giro-YYYY-MM-DD_HH-MM-SS.csv`
-
-### 6. Gerenciador (`sensor/manager.py` - `SensorManager`)
-```python
-class SensorManager:
-    def iniciar(self):
-        self.fila_gravacao = Queue(maxsize=50_000)
-        self.coletor.configurar_fila_gravacao(self.fila_gravacao)
-        self.gravador_thread = GravadorWorker(self.fila_gravacao)
-        self.gravador_thread.start()
-        self.thread = Thread(target=self.coletor.executar, name="coletor-serial", daemon=True)
-        self.thread.start()
-    
-    def parar(self):
-        self.coletor.parar()
-        self.thread.join()
-        self.fila_gravacao.put(None)    # Sentinela
-        self.gravador_thread.join()
-```
-- **Facade** para iniciar/parar todo o pipeline
-- Instância global: `manager = SensorManager()`
-
-### 7. Interface PyQt (`realtime/janela.py` - `Janela`)
-```python
-class Janela(QMainWindow):
-    INTERVALO_GRAFICO_MS = 200    # 5 FPS
-    PONTOS_GRAFICO = 150          # Pontos por frame
-    
-    def criar_timer(self):
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.atualizar_grafico)
-        self.timer.timeout.connect(self.atualizar_estatisticas)
-        self.timer.start(INTERVALO_GRAFICO_MS)
-    
-    def atualizar_grafico(self):
-        if self.manager.buffer.vazio(): return
-        dados = self.manager.buffer.snapshot(PONTOS_GRAFICO)
-        contadores = np.arange(len(dados['contador']))  # eixo X relativo reutilizado
-        if self.checkbox_ax.isChecked():
-            self.curva_ax.setData(contadores, np.asarray(dados["ax"]), skipFiniteCheck=True)
-        # ... ay, az, gx, gy, gz
-    
-    def atualizar_estatisticas(self):
-        self.label_hz_medio.setText(f"Hz Médio: {self.manager.coletor.hz_medio:.2f}")
-        self.label_hz_instantaneo.setText(f"Hz Inst: {self.manager.coletor.hz_inst:.2f}")
-        self.label_amostras.setText(f"Amostras: {self.manager.coletor.numero_amostras}")
-        # Estatísticas Ax via utils.statistics.calcular_estatisticas()
-```
-- **5 FPS** (200ms) → balanceia fluidez vs CPU
-- **150 pontos** por frame → janela ~0,7s a 215 Hz
-- **Eixo X relativo reutilizado** → evita reposicionar a faixa visual em todo frame
-- **pyqtgraph** → rendering GPU acelerado
-
----
-
-## Estrutura de Diretórios
-
-```
-PROJETO_SENSOR_VIBRACAO/
-├── arduino/
-│   └── mpu-6050/
-│       └── mpu-6050.ino          # Firmware Arduino
-├── sensor/
-│   ├── __init__.py
-│   ├── serial_reader.py          # Leitura serial (generator)
-│   ├── coletor.py                # Thread de aquisição
-│   ├── buffers.py                # Buffer circular NumPy (thread-safe)
-│   ├── gravador.py               # CSV writer com batch
-│   ├── gravador_worker.py        # Thread de gravação
-│   ├── manager.py                # Facade SensorManager
-│   └── teste_manager.py          # Teste CLI simples
-├── realtime/
-│   ├── __init__.py
-│   ├── janela.py                 # UI PyQt6 principal
-│   ├── main.py                   # Entry point UI
-│   └── gráfico.py                # UI alternativa simples
-├── utils/
-│   └── statistics.py             # Estatísticas descritivas (NumPy)
-├── pages/                        # Streamlit pages (docs/dashboard)
-├── dados/                        # CSVs gerados (gitignored)
-├── assets/                       # Imagens/GIFs
-├── ERROS/                        # Documentação de bugs corrigidos
-├── DOCS/                         # ESTA DOCUMENTAÇÃO
-├── home.py                       # Streamlit home
-├── pyproject.toml                # Dependências
-└── README.md
+```text
+contador,tempo_arduino_us,ax,ay,az,gx,gy,gz
 ```
 
----
+O `contador` permite detectar perdas. `tempo_arduino_us`, vindo de `micros()`, é a referência usada para calcular Hz no Python. Veja [[arduino_mpu6050]] para registradores, escalas e cuidados de I²C.
 
-## Dependências Principais (`pyproject.toml`)
+## 2. Leitor serial
 
-| Pacote | Versão | Uso |
-|--------|--------|-----|
-| `pyserial` | ≥3.5 | Comunicação serial Arduino |
-| `numpy` | ≥2.4.6 | Arrays, matemática, buffer |
-| `pyqt6` | ≥6.11 | Interface gráfica |
-| `pyqtgraph` | ≥0.14 | Gráficos tempo real performáticos |
-| `pandas` | ≥3.0 | Análise de dados (futuro) |
-| `streamlit` | ≥1.57 | Dashboard web (páginas) |
+`sensor/serial_reader.py` abre a porta em `115200` baud, aguarda a reinicialização do Arduino e usa `readline()` para obter uma linha completa. Só aceita oito campos numéricos.
 
----
+O leitor recebe de `coletor.py` uma função `deve_continuar`. Assim, ao parar a coleta, ele encerra mesmo se a serial não estiver recebendo linhas; no pior caso espera o timeout serial de `0,1 s`.
 
-## Como Executar
+## 3. Coletor: ponto central da aquisição
 
-### Interface PyQt (Tempo Real)
-```bash
-# Ativar venv
-.\.venv\Scripts\activate
+`sensor/coletor.py` roda em uma thread criada pelo `SensorManager`. Para cada amostra válida, ele:
 
-# Executar janela principal
-python -m realtime.main
+1. calcula Hz médio, instantâneo e suavizado pelo tempo do Arduino;
+2. compara o contador atual com o anterior e conta saltos;
+3. envia a amostra ao `BufferSensores`;
+4. coloca uma cópia na fila de gravação sem esperar pelo disco.
+
+No futuro, este é o ponto recomendado para aplicar uma calibração validada: depois da leitura serial e antes de buffer, janela e CSV. Hoje o projeto ainda mantém os valores recebidos sem correção adicional.
+
+## 4. Buffer e janela em tempo real
+
+`sensor/buffers.py` mantém até 10.000 amostras em memória, em ordem cronológica e protegido por `Lock`.
+
+`realtime/janela.py` não lê a serial. Ela pede `snapshot(150)` ao buffer e redesenha os dois gráficos aproximadamente a cada `33 ms`:
+
+```text
+últimas 150 amostras
+        ↓
+eixo X relativo de 0 até n - 1
+        ↓
+curvas de aceleração e giro
 ```
 
-### Teste CLI (Sem UI)
-```bash
-python -m sensor.teste_manager
-# Ctrl+C para parar
+O eixo X não é deslocado a cada frame. Esse detalhe reduz o custo de renderização e ajuda a preservar a taxa de aquisição. O botão **Auto Escala** pode reajustar somente o eixo Y; ele nunca move X.
+
+As estatísticas são atualizadas separadamente a cada `500 ms`. Elas usam outra cópia das últimas 150 amostras e exibem média, desvio padrão e RMS.
+
+### Janela não é histórico completo
+
+A janela mostra somente cerca de `150 / 210 ≈ 0,7 s` recentes. Um pico que ocorreu antes pode ter desaparecido da janela, mas permanece no CSV e aparecerá no Plotly.
+
+## 5. Gravação assíncrona do CSV
+
+O `Coletor` não escreve em disco diretamente. Ele envia cada linha para uma `Queue(maxsize=50000)` e `GravadorWorker` grava lotes de 1.000 linhas no arquivo CSV.
+
+Essa separação protege a serial contra pequenas pausas de disco. Se a fila encher, o coletor registra `amostras_nao_enfileiradas`: a janela pode continuar mostrando dados, mas o CSV poderá perder algumas linhas.
+
+Ao parar, `SensorManager.parar()` faz três coisas em ordem: para o coletor, espera sua thread terminar, envia o sentinela `None` ao gravador e espera o flush do arquivo. Só então a janela abre o Plotly.
+
+## 6. Plotly: análise posterior
+
+`grafico/plotar_csv.py` lê o CSV completo e cria dois painéis no navegador:
+
+- aceleração: `ax`, `ay`, `az`;
+- giroscópio: `gx`, `gy`, `gz`.
+
+Por isso, Plotly pode exibir eventos que não aparecem mais na janela. Ele não recebe dados da interface: ambos usam a mesma sessão apenas porque o CSV foi gravado pelo coletor.
+
+## 7. Calibração por vibração conhecida
+
+`calibração/calibrar_vibracao.py` é executado depois da captura, sobre um CSV. Para um eixo excitado em uma bancada com RMS conhecido, ele calcula:
+
+```text
+offset = média do eixo
+ganho  = RMS conhecido / RMS medido após remover o offset
+valor corrigido = ganho × (valor medido - offset)
 ```
 
-### Streamlit Dashboard
-```bash
-streamlit run home.py
-```
+O resultado é um JSON. O script não modifica o firmware, o coletor, a janela ou o CSV original. Antes de integrar os coeficientes, valide-os em outra captura. Veja [[calibrar_vibracao]].
 
----
+## Executar cada parte
 
-## Configuração do Arduino
+| Objetivo | Comando | O que acontece |
+|---|---|---|
+| Monitorar normalmente | `python -m realtime.main` | Abre a janela; clique em Iniciar. |
+| Testar serial sem GUI | `python -m sensor.teste_manager` | Imprime contador e tamanho do buffer. |
+| Debug visual mínimo | `python realtime\gráfico.py` | Inicia coleta e mostra apenas `ax`; use por pouco tempo. |
+| Analisar CSV | `python grafico\plotar_csv.py` | Abre o CSV mais recente no navegador. |
+| Calibrar uma vibração | `python calibração\calibrar_vibracao.py 0.50` | Compara o último CSV com referência de `0,50 g RMS` em `az`. |
 
-1. Carregar `arduino/mpu-6050/mpu-6050.ino` no Arduino IDE
-2. Verificar: **Tools > Port** = COM correto (ex: COM4)
-3. Verificar: **Tools > Board** = Arduino Uno/Nano
-4. **Baud rate no código**: `Serial.begin(115200)` → deve coincidir com Python
-5. **Remover/Comentar** `delay(10000)` no `setup()` para início imediato
+## Limites importantes
 
----
+- Não há correção de calibração aplicada automaticamente ainda.
+- O firmware não verifica continuamente se o MPU6050 preservou as escalas configuradas. Se, após movimento, um eixo parado passa de aproximadamente `1 g` para `8 g`, investigue possível reset do MPU, alimentação e I²C.
+- Taxa e filtro DLPF não são configurados explicitamente no firmware; não use o sistema para uma análise de frequência crítica sem primeiro definir e validar esses parâmetros.
 
-## Problemas Conhecidos e Correções
+## Referências
 
-| Problema | Arquivo | Documentação |
-|----------|---------|--------------|
-| Pulando amostras na serial | `serial_reader.py` | [[correcao-pulos-amostras-serial]] |
-| Buffer congelando após 10k | `buffers.py` | [[correcao-buffer-congelando-wrap-around]] |
-
-> **Regra:** Sempre que alterar um script, atualize a documentação correspondente em `DOCS/` e `ERROS/` se for bug fix.
-
----
-
-## Métricas de Performance
-
-| Métrica | Valor | Observação |
-|---------|-------|------------|
-| Taxa aquisição | ~215 Hz | Limitado por I2C + Serial |
-| Buffer circular | 10.000 amostras | ~46s de histórico |
-| FPS interface | 5 FPS (200ms) | Configurável em `janela.py` |
-| Pontos/frame | 150 | ~0.70s de janela visual |
-| Batch CSV | 1.000 linhas | Escrita assíncrona |
-| Fila gravação | 50.000 itens | Buffer de pico |
-| Uso CPU (UI) | ~2-5% | pyqtgraph otimizado |
-| Uso RAM | ~50 MB | Buffer + arrays NumPy |
-
----
-
-## Próximos Passos / Roadmap
-
-- [ ] FFT em tempo real (análise frequência)
-- [ ] Detecção de anomalias (IA)
-- [ ] Múltiplos sensores (sincronização)
-- [ ] Calibração automática offsets
-- [ ] Exportação de relatórios PDF
-- [ ] Dashboard Streamlit completo
+- [[arduino_mpu6050]] — firmware, registradores e escalas.
+- [[serial_reader]], [[coletor]], [[buffers]], [[gravador]] e [[manager]] — pipeline Python.
+- [[janela]] e [[grafico]] — interfaces de tempo real.
+- [[plotar_csv]] — análise do CSV completo.
+- [[calibrar_vibracao]] — calibração simples por referência RMS.

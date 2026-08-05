@@ -7,6 +7,8 @@
 
 ---
 
+> **Contexto histórico:** exemplos com `snapshot(250)` e referências de linha descrevem a versão investigada na época. A janela atual usa `snapshot(150)`; consulte `DOCS/janela.md`.
+
 ## Resumo Executivo
 
 O problema era o **wrap-around do buffer circular** na versão otimizada com NumPy (`buffers.py`). 

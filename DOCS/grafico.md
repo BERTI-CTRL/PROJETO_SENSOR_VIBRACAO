@@ -1,125 +1,46 @@
-# realtime/gráfico.py
+# `realtime/gráfico.py`
 
-> Este documento descreve a janela PyQt mínima de depuração. Para analisar um
-> CSV salvo com gráfico Plotly interativo, use [[plotar_csv]] (`grafico/plotar_csv.py`).
+**Responsabilidade:** janela mínima para verificar rapidamente se `ax` chega ao Python.
 
-**Responsabilidade:** Interface alternativa minimalista para visualização rápida (single plot, 60 FPS).  
-**Tipo:** Script executável standalone (`python realtime/gráfico.py`)  
-**Thread:** Main thread (GUI)
+## Quando usar
 
----
+Use apenas para diagnóstico rápido: confirmar que a porta abre e que a aceleração X muda quando o sensor é movimentado. Para coleta normal, use `python -m realtime.main`.
 
-## Código Completo
-
-```python
-import sys
-import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtWidgets
-from sensor.manager import manager
-
-
-class Janela(QtWidgets.QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Sensor de Vibração")
-        self.resize(1200, 600)
-
-        # Gráfico simples
-        self.grafico = pg.PlotWidget()
-        self.setCentralWidget(self.grafico)
-
-        self.curva = self.grafico.plot(pen="y", width=2)
-        self.grafico.showGrid(x=True, y=True)
-        self.grafico.setLabel("left", "Aceleração (g)")
-        self.grafico.setLabel("bottom", "Amostras")
-
-        # Inicia aquisição
-        manager.iniciar()
-
-        # Timer ~60 FPS (16ms)
-        self.timer = QtCore.QTimer()
-        self.timer.timeout.connect(self.atualizar)
-        self.timer.start(16)
-
-    def atualizar(self):
-        dados = manager.buffer
-        if len(dados.ax) < 2:
-            return
-        ax = list(dados.ax)[-500:]  # Últimos 500 pontos
-        self.curva.setData(ax)
-
-    def closeEvent(self, event):
-        manager.parar()
-        event.accept()
-
-
-app = QtWidgets.QApplication(sys.argv)
-janela = Janela()
-janela.show()
-sys.exit(app.exec())
+```powershell
+python realtime\gráfico.py
 ```
 
----
+Este arquivo inicia `manager.iniciar()` automaticamente e, ao fechar a janela, chama `manager.parar()`.
 
-## Diferenças vs `janela.py` (Principal)
+## Como funciona
 
-| Aspecto | `gráfico.py` (Simples) | `janela.py` (Completa) |
-|---------|------------------------|------------------------|
-| **Linhas** | ~63 | ~532 |
-| **Canais** | 1 (ax apenas) | 6 (ax,ay,az,gx,gy,gz) |
-| **FPS** | 60 FPS (16ms) | 5 FPS (200ms) |
-| **Pontos** | 500 fixos | 250 configuráveis |
-| **Controles** | Nenhum | Checkboxes, botões, stats |
-| **Estatísticas** | Não | Hz, RMS, média, desvio, etc. |
-| **Eixo X** | Índice implícito (0..499) | Relativo (0..249) |
-| **Uso** | Debug rápido / teste | Produção / monitoramento |
-
----
-
-## Fluxo de Atualização (60 FPS)
-
-```
-Timer 16ms
-    │
-    ▼
-atualizar()
-    │
-    ├─ manager.buffer → dados
-    ├─ len(dados.ax) < 2? → return
-    ├─ ax = list(dados.ax)[-500:]  # Conversão list + slice
-    └─ self.curva.setData(ax)       # Plot widget update
+```text
+manager.buffer.ax
+        ↓
+últimos 500 valores
+        ↓
+curva única amarela
 ```
 
-**Nota:** `list(dados.ax)` cria cópia Python list → overhead maior que `janela.py` que usa `np.asarray()` + `setData()` direto.
+O timer roda a cada `16 ms` (~60 FPS). Ele acessa a propriedade `buffer.ax`, que pode copiar uma janela grande quando o buffer está cheio. Por isso é útil para poucos segundos de depuração, mas não é a opção indicada para teste sustentado de desempenho ou coleta longa.
 
----
+## Diferença para a janela principal
 
-## Quando Usar Cada Um
+| Aspecto | `gráfico.py` | `janela.py` |
+|---|---|---|
+| Sinais | apenas `ax` | seis eixos, separados em dois gráficos |
+| Atualização | ~60 FPS | ~30 FPS (`33 ms`) |
+| Janela de dados | até 500 pontos | últimas 150 amostras via `snapshot()` |
+| Controles | nenhum | iniciar, parar, limpar, autoescala e checkboxes |
+| Estatísticas | não | Hz, média, desvio e RMS |
+| Uso | confirmação rápida | monitoramento normal |
 
-| Cenário | Recomendado |
-|---------|-------------|
-| Teste rápido "liga/desliga" | `python realtime/gráfico.py` |
-| Verificar se Arduino envia dados | `gráfico.py` |
-| Debug de taxa de amostragem | `gráfico.py` (60 FPS) |
-| Monitoramento produção | `python -m realtime.main` (`janela.py`) |
-| Análise de múltiplos eixos | `janela.py` |
-| Estatísticas em tempo real | `janela.py` |
-| Apresentação / relatórios | `janela.py` |
+## Relação com o pipeline
 
----
+Ele usa o mesmo `sensor.manager.manager` da interface principal. Portanto, também abre a porta serial e gera CSV. Não execute este script junto com `realtime.main`, pois os dois tentariam abrir a mesma porta.
 
-## Dependências
+## Referências
 
-- `PyQt6` / `pyqtgraph.Qt` (Qt6 bindings)
-- `pyqtgraph` - PlotWidget
-- `sensor.manager` - Pipeline global
-
----
-
-## Referências Cruzadas
-
-| Arquivo | Relação |
-|---------|---------|
-| [[main]] | Entry point oficial (usa `janela.py`) |
-| [[janela]] | Versão completa |
-| [[manager]] | Instância global `manager` |
+- [[manager]] — objeto que inicia a coleta.
+- [[janela]] — interface principal recomendada.
+- [[plotar_csv]] — análise posterior do CSV.

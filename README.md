@@ -171,14 +171,14 @@ O arquivo principal é [realtime/janela.py](realtime/janela.py). A classe `Janel
 
 | Gráfico | Curvas | Unidade | Escala inicial da janela |
 |---|---|---|---:|
-| Aceleração | `ax`, `ay`, `az` | `g` | -2 a 2 |
-| Giroscópio | `gx`, `gy`, `gz` | `°/s` | -20 a 20 |
+| Aceleração | `ax`, `ay`, `az` | `g` | -40 a 40 |
+| Giroscópio | `gx`, `gy`, `gz` | `°/s` | -50 a 50 |
 
 Separar os gráficos é importante: misturar `g` e `°/s` no mesmo eixo Y faz um grupo esconder visualmente o outro. Os limites da janela são de **visualização**, não são o fundo de escala físico configurado no sensor.
 
 Se um sinal ficar cortado, há duas opções:
 
-1. ajustar `setYRange(...)` no gráfico correspondente;
+1. ajustar `INTERVALO_EIXO_Y_ACELERAÇÃO` ou `INTERVALO_EIXO_Y_GIROSCÓPIO` no topo de `janela.py`;
 2. clicar em **Auto Escala**, sabendo que o auto-range contínuo pode custar mais desempenho.
 
 ### Timers e quantidade de dados
@@ -205,13 +205,13 @@ Mostrar somente 150 pontos **não apaga** as amostras do buffer nem do CSV; é a
 - **Checkboxes:** mostram ou escondem cada eixo sem parar sua coleta.
 - **Auto Escala:** ativa o ajuste contínuo do eixo Y dos dois gráficos. O eixo X continua fixo nas últimas 150 amostras.
 
-O zoom manual está desativado no código por estas linhas:
+O zoom manual é controlado por esta constante:
 
 ```python
-setMouseEnabled(x=False, y=False)
+MOUSE_ATIVADO = False
 ```
 
-Para habilitar zoom com roda do mouse e deslocamento, troque `False` por `True` nos dois `PlotWidget`.
+Para habilitar zoom com roda do mouse e deslocamento, troque seu valor para `True`.
 
 O eixo X é relativo às últimas amostras (`0` até `n - 1`) e é reutilizado entre atualizações. Isso evita reposicionar a visualização em todo frame e preserva mais tempo de CPU para a leitura serial. O botão **Auto Escala** chama `autoescala()` para os dois gráficos.
 
@@ -229,6 +229,7 @@ O eixo X é relativo às últimas amostras (`0` até `n - 1`) e é reutilizado e
 | [realtime/main.py](realtime/main.py) | Cria `QApplication`, instancia a janela e inicia o loop Qt. |
 | [realtime/janela.py](realtime/janela.py) | Mostra os gráficos, os controles e as estatísticas. |
 | [grafico/plotar_csv.py](grafico/plotar_csv.py) | Lê um CSV salvo e abre gráficos Plotly no navegador. |
+| [calibração/calibrar_vibracao.py](calibração/calibrar_vibracao.py) | Calcula offset e ganho de um eixo usando uma vibração RMS conhecida. |
 | [realtime/gráfico.py](realtime/gráfico.py) | Janela mínima de depuração: apenas `ax`, com atualização muito rápida. |
 
 ### 1. Leitura serial: `serial_reader.py`
@@ -359,6 +360,22 @@ python grafico\plotar_csv.py dados\dados_aceleracao_giro-2026-08-04_16-17-40.csv
 
 O Plotly abre no navegador com dois painéis: aceleração e giroscópio. Use a roda para zoom, arraste para navegar, passe o mouse para ver valores e clique nos itens da legenda para ocultar curvas.
 
+Ele lê o CSV inteiro. Por isso, pode exibir um pico que já saiu da janela PyQt, que desenha somente as últimas 150 amostras.
+
+### Calibrar uma vibração conhecida
+
+Com o sensor fixado na mesma estrutura da referência, informe a vibração conhecida em `g RMS`:
+
+```powershell
+# Referência de 0,50 g RMS no eixo Z; usa o último CSV.
+python calibração\calibrar_vibracao.py 0.50
+
+# Escolhe o arquivo e o eixo X.
+python calibração\calibrar_vibracao.py 0.50 dados\teste_10hz.csv --eixo ax
+```
+
+O script salva `offset` e `ganho` em JSON, mas ainda não altera a coleta, a janela ou o CSV. Valide os coeficientes em outro ensaio antes de integrá-los. Consulte [calibração/guia_calibracao_mpu6050.md](calibração/guia_calibracao_mpu6050.md).
+
 ## Desempenho: o que pode afetar a coleta
 
 A leitura serial roda em sua própria thread, mas todas as threads Python ainda compartilham CPU. Renderização excessiva pode reduzir o tempo disponível para a aquisição.
@@ -389,11 +406,11 @@ Depois, teste a interface e confirme se o terminal não relata saltos no contado
 
 ### Alterar escalas dos gráficos
 
-Edite os limites do gráfico específico:
+Edite as constantes no topo de `realtime/janela.py`:
 
 ```python
-self.grafico_aceleracao.setYRange(-2, 2, padding=0)
-self.grafico_giroscopio.setYRange(-20, 20, padding=0)
+INTERVALO_EIXO_Y_ACELERAÇÃO = (-40, 40)
+INTERVALO_EIXO_Y_GIROSCÓPIO = (-50, 50)
 ```
 
 Esses limites são apenas visuais. Eles devem ser escolhidos de acordo com o experimento, sem confundir com o fundo de escala configurado no MPU6050.
@@ -436,7 +453,8 @@ Se apenas uma dessas etapas for esquecida, o leitor pode descartar linhas por n�
 | Saltos no contador | Reduza carga de interface, confira baud rate, cabo e produção de dados no Arduino. |
 | CSV não possui as últimas linhas | Pare a aquisição normalmente para executar o flush do gravador. |
 | Aceleração parece reta | Ajuste a escala do gráfico de aceleração; não misture com a escala do giroscópio. |
-| Não há zoom com mouse | Altere `setMouseEnabled(x=False, y=False)` para `True` nos dois gráficos. |
+| Não há zoom com mouse | Altere `MOUSE_ATIVADO = False` para `True` em `realtime/janela.py`. |
+| Eixo parado passa de ~1 g para ~8 g após movimento | Suspeite de reset do MPU6050; confira alimentação, I²C e escalas. |
 | Plotly não encontra arquivo | Confirme que existe um CSV não vazio em `dados/` ou informe o caminho manualmente. |
 
 ## Estrutura de diretórios
@@ -448,6 +466,7 @@ PROJETO_SENSOR_VIBRACAO/
 ├── realtime/                       # interface PyQt e ponto de entrada
 ├── utils/statistics.py             # estatísticas descritivas
 ├── grafico/plotar_csv.py           # análise interativa de CSV com Plotly
+├── calibração/                      # guia e calibração por referência RMS
 ├── dados/                          # CSVs gerados durante as sessões
 ├── DOCS/                           # documentação detalhada por componente
 ├── ERROS/                          # histórico de correções
@@ -464,6 +483,8 @@ A pasta [DOCS](DOCS) contém páginas mais específicas para cada componente. Os
 - [DOCS/ARQUITETURA.md](DOCS/ARQUITETURA.md)
 - [DOCS/janela.md](DOCS/janela.md)
 - [DOCS/plotar_csv.md](DOCS/plotar_csv.md)
+- [DOCS/calibrar_vibracao.md](DOCS/calibrar_vibracao.md)
+- [calibração/guia_calibracao_mpu6050.md](calibração/guia_calibracao_mpu6050.md)
 
 ## Próximos passos possíveis
 

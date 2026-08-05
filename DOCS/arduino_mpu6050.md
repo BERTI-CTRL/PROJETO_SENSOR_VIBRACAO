@@ -416,6 +416,12 @@ Por isso, o projeto calcula Hz usando micros do Arduino e exibe Hz Médio, Hz In
 
 **Regra prática:** não deduza a taxa apenas do código. Meça a taxa efetiva e confirme se ela é suficiente para a frequência de vibração que se quer estudar.
 
+### Possível reset do MPU6050 durante o ensaio
+
+Se um eixo parado muda de aproximadamente `1 g` para `8 g` depois de um movimento forte, e os valores do giro também ficam cerca de oito vezes maiores, suspeite de reset do MPU6050. O chip pode voltar às escalas padrão (`±2 g` e `±250 °/s`), enquanto o firmware continua dividindo como se estivesse em `±16 g` e `±2000 °/s`.
+
+O código atual configura as escalas apenas no `setup()`. Como verificação futura, leia periodicamente `ACCEL_CONFIG` (`0x1C`) e `GYRO_CONFIG` (`0x1B`); se não forem `0b00011000`, reconfigure o sensor e investigue alimentação, cabo e I²C. Essa proteção não substitui corrigir a causa elétrica de um reset.
+
 ## 13. O que modificar com segurança
 
 ### Mudar fundo de escala

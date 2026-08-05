@@ -4,6 +4,8 @@
 
 O script não acessa a porta serial e não altera os CSVs. Ele lê um arquivo existente e abre o resultado no navegador.
 
+> **Importante:** ele lê o CSV inteiro. Já a janela PyQt mostra somente as últimas 150 amostras. Portanto, um pico que já saiu da janela pode aparecer no Plotly; isso não significa que o Plotly criou um novo valor.
+
 ## Uso
 
 ```powershell
@@ -33,6 +35,8 @@ O eixo X é a coluna `contador`, que mantém a ordem das amostras. O Plotly cria
 | Giroscópio | `gx`, `gy`, `gz` | `°/s` |
 
 Os sinais são separados para que valores do giroscópio não diminuam visualmente as variações da aceleração.
+
+O layout tem altura de 1200 px para que os dois painéis tenham espaço para zoom e inspeção.
 
 ## Formato esperado do CSV
 

@@ -1,66 +1,52 @@
 # Índice da documentação — PROJETO_SENSOR_VIBRACAO
 
-**Atualizado:** 04/08/2026
+**Atualizado:** 05/08/2026
 
-## Componentes principais
+## Comece por aqui
 
-| Documento | Conteúdo |
-|---|---|
-| [[ARQUITETURA]] | Visão geral do fluxo Arduino → Python → CSV → interface. |
-| [[arduino_mpu6050]] | Firmware Arduino, registradores do MPU6050 e relação com os PDFs técnicos. |
-| [[serial_reader]] | Leitura e validação das linhas recebidas pela serial. |
-| [[coletor]] | Processamento das amostras e métricas de frequência. |
-| [[buffers]] | Buffer circular NumPy com acesso thread-safe. |
-| [[gravador]] / [[gravador_worker]] | Persistência assíncrona dos dados em CSV. |
-| [[manager]] | Inicialização e encerramento do pipeline. |
-| [[janela]] | Interface principal com dois gráficos em tempo real. |
-| [[main]] | Ponto de entrada da aplicação PyQt. |
-| [[grafico]] | Interface PyQt mínima usada para depuração rápida. |
-| [[plotar_csv]] | Análise posterior de um CSV com Plotly. |
-| [[statistics]] | Estatísticas descritivas usadas pela interface. |
+1. [[ARQUITETURA]] — visão do caminho completo de uma amostra.
+2. [[arduino_mpu6050]] — conexão, registradores e escalas do MPU6050.
+3. [[janela]] — uso da interface em tempo real e limites de desempenho.
+4. [[plotar_csv]] — análise do CSV inteiro no navegador.
+5. [[calibrar_vibracao]] — primeiro ensaio com vibração RMS conhecida.
 
-## Fluxo resumido
+## Scripts e relação entre eles
 
-```text
-Arduino / MPU6050
-        ↓ serial (115200 baud)
-serial_reader.py
-        ↓
-coletor.py (thread de aquisição)
-        ├── BufferSensores: dados para a janela
-        └── GravadorWorker: dados para o CSV
-                                  ↓
-                    grafico/plotar_csv.py (análise posterior)
-```
-
-## Interface em tempo real
-
-`realtime/janela.py` usa dois timers independentes:
-
-| Tarefa | Intervalo | Dados usados |
-|---|---:|---|
-| Redesenhar os gráficos | 33 ms | últimas 150 amostras |
-| Atualizar estatísticas | 500 ms | últimas 150 amostras |
-
-Há dois gráficos para evitar mistura de escala:
-
-- aceleração: `ax`, `ay`, `az`, em `g`;
-- giroscópio: `gx`, `gy`, `gz`, em `°/s`.
+| Documento | Script | Uso principal |
+|---|---|---|
+| [[arduino_mpu6050]] | `arduino/mpu-6050/mpu-6050.ino` | Lê o sensor e envia a linha serial. |
+| [[serial_reader]] | `sensor/serial_reader.py` | Lê e valida a linha serial. |
+| [[coletor]] | `sensor/coletor.py` | Calcula Hz, detecta saltos e encaminha a amostra. |
+| [[buffers]] | `sensor/buffers.py` | Mantém as últimas 10.000 amostras. |
+| [[gravador]] / [[gravador_worker]] | `sensor/gravador*.py` | Salva CSV sem bloquear a serial. |
+| [[manager]] | `sensor/manager.py` | Inicia e para as duas threads. |
+| [[testar_dados]] | `sensor/teste_manager.py` | Testa a coleta sem abrir GUI. |
+| [[main]] / [[janela]] | `realtime/main.py`, `realtime/janela.py` | Interface principal. |
+| [[grafico]] | `realtime/gráfico.py` | Debug visual rápido de `ax`. |
+| [[plotar_csv]] | `grafico/plotar_csv.py` | Plotly com o CSV completo. |
+| [[statistics]] | `utils/statistics.py` | Métricas usadas na janela. |
+| [[calibrar_vibracao]] | `calibração/calibrar_vibracao.py` | Gera offset e ganho a partir de referência RMS. |
 
 ## Comandos rápidos
 
 ```powershell
-# Interface em tempo real
+# Janela principal
 python -m realtime.main
 
-# Analisa o CSV mais recente salvo em dados/
+# Teste serial sem interface
+python -m sensor.teste_manager
+
+# Debug visual mínimo (somente ax)
+python realtime\gráfico.py
+
+# Plotly do último CSV
 python grafico\plotar_csv.py
 
-# Analisa um CSV escolhido
-python grafico\plotar_csv.py dados\arquivo.csv
+# Calibração simples com referência de 0,50 g RMS em az
+python calibração\calibrar_vibracao.py 0.50
 ```
 
-## Documentação de correções
+## Correções registradas
 
 - [[correcao-pulos-amostras-serial]]
 - [[correcao-buffer-congelando-wrap-around]]

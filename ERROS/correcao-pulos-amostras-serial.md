@@ -7,6 +7,8 @@
 
 ---
 
+> **Contexto histórico:** os valores de 200 ms, 5 FPS e 250 pontos citados neste registro descrevem o experimento da época. A configuração atual é 33 ms (~30 FPS) e 150 pontos; consulte `README.md` e `DOCS/janela.md`.
+
 ## Resumo Executivo
 
 O problema **não era perda real de amostras do Arduino**, mas sim **quebra de linhas na leitura serial Python** causada por uma modificação incorreta no `serial_reader.py`. O Arduino enviava dados contíguos (~215 Hz), mas o Python lia linhas quebradas, interpretando como amostras perdidas.
@@ -158,9 +160,11 @@ PONTOS_GRAFICO = 250            # Era 500 → Agora 250 (menos dados por frame)
 ```
 
 
-**Impacto:** Reduz contenção de Lock entre thread de aquisição e thread UI, mas **não era a causa do bug**.
+**Impacto:** Reduz contenção de Lock entre thread de aquisição e thread UI.
 
-**Ponto importante:** Altos fps podem provocar perdas de amostras por atraso nas threads e processos. A 5 FPS, no estado de projeto  ***Commit: correção do salto de amostras e documentação do projeto*** foi percebido que a modificação descuidade dos FPS da interface são uma das causas das perdas de amostras!!! 5FPS  no momnto é o unico que não pula amostra
+> **Observação posterior importante:** durante os testes a 200 Hz, foi constatado que o **auto-scroll** da janela era um dos principais responsáveis pelas perdas. A cada atualização ele deslocava/recalculava a visualização do gráfico; esse trabalho consumia tanto a thread da interface que ela passava a disputar recursos com a aquisição. O resultado eram travamentos e saltos no contador (amostras perdidas). Por isso o auto-scroll contínuo foi removido: o eixo X permanece estático e a atualização desenha apenas os dados já disponíveis.
+
+Altas taxas de atualização da interface podem provocar perdas por atraso entre threads. A configuração atual é 33 ms (~30 FPS) e 150 pontos, sem auto-scroll contínuo; ela deve ser validada junto da taxa de aquisição desejada.
 
 
 ---

@@ -443,6 +443,30 @@ O acelerômetro mede gravidade e aceleração linear. Se o sensor tiver orienta�
 
 Esse processo evita pular diretamente para um alarme sem saber se o sensor está medindo corretamente. Primeiro mede-se o erro, depois corrige-se, valida-se e só então usa-se o dado para interpretar a máquina.
 
+## 16. Script básico: vibração conhecida
+
+O arquivo `calibrar_vibracao.py` foi feito para o primeiro ensaio na bancada. Fixe o MPU6050 ao lado da referência, excite **um eixo por vez** e anote a aceleração RMS conhecida em `g`.
+
+~~~powershell
+# Exemplo: bancada conhecida de 0,50 g RMS no eixo Z.
+# Usa o último CSV salvo em dados/.
+python calibração\calibrar_vibracao.py 0.50
+
+# Exemplo escolhendo o CSV e o eixo X.
+python calibração\calibrar_vibracao.py 0.50 dados\teste_10hz.csv --eixo ax
+~~~
+
+O script faz somente quatro coisas:
+
+1. descarta os 2 primeiros segundos, período em que o sensor pode estar sendo preso;
+2. calcula a média do eixo como `offset` (baseline/gravidade fixa);
+3. remove esse offset e mede o RMS da vibração restante;
+4. calcula `ganho = RMS conhecido / RMS medido`.
+
+O JSON salvo contém a fórmula `valor_corrigido = ganho × (valor_medido - offset)`. Não o integre ainda no `coletor.py`: faça uma segunda captura na mesma vibração conhecida e confira se o RMS corrigido fica próximo da referência.
+
+**Cuidado:** informe RMS com RMS. Se a bancada informar valor de pico ou pico a pico, converta antes de executar o script.
+
 ## Referências
 
 - [MPU-6000/MPU-6050 Product Specification — TDK InvenSense](https://invensense.tdk.com/wp-content/uploads/2015/02/MPU-6000-Datasheet.pdf)

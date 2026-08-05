@@ -1,141 +1,35 @@
-# realtime/main.py
+# `realtime/main.py`
 
-> **Interface atual:** a `Janela` criada por este ponto de entrada contém dois
-> gráficos: aceleração e giroscópio. Eles usam timers separados: 33 ms para
-> redesenho e 500 ms para estatísticas. Veja [[janela]].
+**Responsabilidade:** ponto de entrada da interface principal.
 
-**Responsabilidade:** Entry point da aplicação PyQt6 - inicializa QApplication e exibe a janela principal.  
-**Tipo:** Script executável (`python -m realtime.main`)  
-**Thread:** Main thread (GUI)
+## O que o arquivo faz
 
----
-
-## Código Completo
-
-```python
-import sys
-from PyQt6.QtWidgets import QApplication
-from realtime.janela import Janela
-
-
-def main():
-    app = QApplication(sys.argv)
-    janela = Janela()
-    janela.show()
-    sys.exit(app.exec())
-
-
-if __name__ == "__main__":
-    main()
+```text
+QApplication
+    ↓
+Janela()
+    ↓
+janela.show()
+    ↓
+app.exec()  ← loop de eventos do Qt
 ```
 
----
+`main.py` não lê serial e não calcula estatísticas. Ele cria a aplicação Qt e entrega o restante do trabalho para `realtime.janela.Janela`.
 
-## Fluxo de Execução
+## Execução recomendada
 
-```
+```powershell
 python -m realtime.main
-       │
-       ▼
-┌─────────────────────┐
-│ QApplication(sys.argv)  │  ──▶ Inicializa Qt (event loop, recursos)
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│ Janela()            │  ──▶ Constrói UI completa:
-│                     │      - Gráfico (PlotWidget)
-│                     │      - Painel sinais (checkboxes)
-│                     │      - Painel estatísticas (QLabels)
-│                     │      - Botões (Iniciar/Parar/Limpar/Auto)
-│                     │      - Timer (200ms + 500ms)
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│ janela.show()       │  ──▶ Exibe janela, processa eventos de pintura
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│ sys.exit(app.exec())│  ──▶ Loop principal Qt (bloqueante)
-│                     │      Processa: input, timers, paint, sinais
-└─────────────────────┘
 ```
 
----
+O formato com `-m` garante que os imports `realtime.*` e `sensor.*` sejam resolvidos a partir da raiz do projeto.
 
-## Pontos-Chave
+## O que acontece ao fechar
 
-| Aspecto | Detalhe |
-|---------|---------|
-| `QApplication(sys.argv)` | Obrigatório **antes** de qualquer widget Qt |
-| `Janela()` | Constrói UI inteira no `__init__` (síncrono, rápido) |
-| `janela.show()` | Não bloqueia; agenda paint event |
-| `app.exec()` | **Bloqueante** - roda até `quit()` ou fechar janela |
-| `sys.exit()` | Propaga código de saída do Qt para OS |
+`Janela.closeEvent()` para os timers e chama `manager.parar()`. O manager encerra o coletor, descarrega o CSV e fecha o gravador antes do processo Qt terminar.
 
----
+## Relação com outros arquivos
 
-## Ciclo de Vida da Aplicação
-
-```
-Início                              Fim (usuário fecha janela)
-─────                               ────────────────────────
-1. QApplication()                   1. closeEvent() em Janela
-2. Janela()                         2. manager.parar() → para threads
-3. janela.show()                    3. app.quit() implícito
-4. app.exec()  ──────────────────▶  4. sys.exit(código)
-   │                                    │
-   │  Loop de eventos Qt                │
-   │  ├─ Timers (200ms, 500ms)         │
-   │  ├─ Botões (sinais/slots)         │
-   │  ├─ Paint events (gráfico)        │
-   │  └─ Sinais Qt (resize, etc)       │
-   ▼                                    ▼
-```
-
----
-
-## Tratamento de Encerramento (`Janela.closeEvent`)
-
-```python
-def closeEvent(self, event):
-    self.manager.parar()    # Para aquisição + threads + flush CSV
-    event.accept()          # Permite fechamento
-```
-
-**Garantias:**
-- Aquisição **sempre parada** antes de fechar
-- Threads `join()` com timeout → não trava encerramento
-- CSV **sempre flushado** e fechado corretamente
-
----
-
-## Como Executar
-
-```bash
-# Opção 1: Módulo (recomendado)
-python -m realtime.main
-
-# Opção 2: Script direto
-python realtime/main.py
-
-# Opção 3: Via entry point (se configurado em pyproject.toml)
-# sensor-vibracao  # hipotético
-```
-
----
-
-## Dependências
-
-- `PyQt6.QtWidgets.QApplication` - Application loop
-- `realtime.janela.Janela` - UI principal
-- `sys` - Argumentos + exit code
-
----
-
-## Referências Cruzadas
-
-| Arquivo | Linha | Relação |
-|---------|-------|---------|
-| [[janela]] | - | UI implementada / Encerramento limpo |
-| [[manager]] | - | Pipeline backend |
-| `pyproject.toml` | - | Dependências PyQt6 |
+- [[janela]] — interface criada por este arquivo.
+- [[manager]] — encerra as threads quando a janela fecha.
+- [[ARQUITETURA]] — visão do fluxo completo.

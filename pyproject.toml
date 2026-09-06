@@ -9,6 +9,7 @@ dependencies = [
     "numpy>=2.4.6",
     "pandas>=3.0.3",
     "plotly>=6.7.0",
+    "pygame>=2.6.1",
     "py>=1.11.0",
     "pyqt6>=6.11.0",
     "pyqtgraph>=0.14.0",

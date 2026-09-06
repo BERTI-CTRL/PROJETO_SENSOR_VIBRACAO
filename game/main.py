@@ -51,11 +51,16 @@ def add_new_calibration_sample(
     sample: SensorSample | None,
 ) -> int | None:
     """Inclui somente uma amostra recebida após a referência de calibração."""
-    if sample is None or (last_counter is not None and sample.counter <= last_counter):
+    if sample is None or sample.counter == last_counter:
         return last_counter
 
     samples.append(sample.ay)
     return sample.counter
+
+
+def should_start_keyboard_mode(sample: SensorSample | None) -> bool:
+    """Usa teclado se a serial não oferece uma leitura recente para calibrar."""
+    return sample is None
 
 
 def _new_ship() -> Ship:
@@ -141,8 +146,11 @@ def _draw_particles(surface: pygame.Surface, particles: list[Particle]) -> None:
         pygame.draw.circle(surface, color, (int(particle.x), int(particle.y)), max(1, int(particle.size * particle.life)))
 
 
-def _status_text(reader: SensorReader) -> tuple[str, tuple[int, int, int]]:
-    if reader.is_connected:
+def _status_text(
+    reader: SensorReader,
+    sample: SensorSample | None,
+) -> tuple[str, tuple[int, int, int]]:
+    if reader.is_connected and sample is not None:
         return reader.status, (120, 255, 177)
     return reader.status, (255, 184, 104)
 
@@ -191,7 +199,7 @@ def run() -> None:
                         inverted = controller.toggle_inversion()
                         message = "Direção invertida." if inverted else "Direção normal restaurada."
                     elif event.key == pygame.K_c and state == "calibration":
-                        if reader.is_connected:
+                        if not should_start_keyboard_mode(sample):
                             calibration_started_at = elapsed
                             calibration_samples.clear()
                             calibration_last_counter = sample.counter if sample is not None else None
@@ -314,7 +322,7 @@ def run() -> None:
                 _draw_text(surface, hud_font, message, TEXT, (WINDOW_WIDTH // 2, 292))
                 _draw_text(surface, small_font, "R = nova partida  •  Esc = sair", MUTED, (WINDOW_WIDTH // 2, 332))
 
-            status, status_color = _status_text(reader)
+            status, status_color = _status_text(reader, sample)
             pygame.draw.rect(surface, (9, 16, 42), (0, WINDOW_HEIGHT - 46, WINDOW_WIDTH, 46))
             _draw_text(surface, small_font, status, status_color, (WINDOW_WIDTH // 2, WINDOW_HEIGHT - 30))
             pygame.display.flip()

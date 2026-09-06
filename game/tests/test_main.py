@@ -1,6 +1,6 @@
 import unittest
 
-from game.main import add_new_calibration_sample, combine_direction
+from game.main import add_new_calibration_sample, combine_direction, should_start_keyboard_mode
 from game.sensor_input import SensorSample
 
 
@@ -21,3 +21,16 @@ class MainLoopTests(unittest.TestCase):
 
         self.assertEqual(counter, 11)
         self.assertEqual(samples, [0.12, 0.14])
+
+    def test_calibration_accepts_a_new_counter_after_sensor_reset(self) -> None:
+        samples: list[float] = []
+        reset_sample = SensorSample(counter=1, ax=1.0, ay=0.08, az=0.0)
+
+        counter = add_new_calibration_sample(samples, 100, reset_sample)
+
+        self.assertEqual(counter, 1)
+        self.assertEqual(samples, [0.08])
+
+    def test_missing_recent_sample_uses_keyboard_calibration_mode(self) -> None:
+        self.assertTrue(should_start_keyboard_mode(None))
+        self.assertFalse(should_start_keyboard_mode(SensorSample(1, 1.0, 0.0, 0.0)))

@@ -13,6 +13,10 @@ class SensorInputTests(unittest.TestCase):
         self.assertIsNone(parse_sensor_line("Erro MPU"))
         self.assertIsNone(parse_sensor_line("1,2,3"))
 
+    def test_parser_rejects_non_numeric_and_non_finite_protocol_fields(self) -> None:
+        self.assertIsNone(parse_sensor_line("7,tempo,1.0,0.0,0.0,0.0,0.0,0.0"))
+        self.assertIsNone(parse_sensor_line("7,123,nan,0.0,0.0,0.0,0.0,0.0"))
+
     def test_latest_sample_expires_when_serial_stops_sending(self) -> None:
         now = [10.0]
         reader = SensorReader(
@@ -28,3 +32,13 @@ class SensorInputTests(unittest.TestCase):
         now[0] = 10.51
 
         self.assertIsNone(reader.latest_sample())
+
+    def test_stop_does_not_close_serial_from_a_second_thread(self) -> None:
+        class SerialOwnedByReaderThread:
+            def close(self) -> None:
+                raise AssertionError("A thread chamadora não deve fechar a serial.")
+
+        reader = SensorReader("COM404", 115200)
+        reader._serial = SerialOwnedByReaderThread()
+
+        reader.stop()

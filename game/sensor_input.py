@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 from threading import Event, Lock, Thread
 from time import monotonic
 from typing import Any, Callable
@@ -27,13 +28,21 @@ def parse_sensor_line(line: str) -> SensorSample | None:
         return None
 
     try:
-        return SensorSample(
-            counter=int(float(fields[0])),
-            ax=float(fields[2]),
-            ay=float(fields[3]),
-            az=float(fields[4]),
-        )
+        values = [float(field) for field in fields]
     except ValueError:
+        return None
+
+    if not all(isfinite(value) for value in values) or not values[0].is_integer():
+        return None
+
+    try:
+        return SensorSample(
+            counter=int(values[0]),
+            ax=values[2],
+            ay=values[3],
+            az=values[4],
+        )
+    except OverflowError:
         return None
 
 
@@ -73,15 +82,8 @@ class SensorReader:
         self._thread.start()
 
     def stop(self) -> None:
-        """Solicita parada e solta a porta para outros programas do projeto."""
+        """Solicita parada; a própria thread fecha a porta ao sair do ``with``."""
         self._stop_event.set()
-        serial_port = self._serial
-        if serial_port is not None:
-            try:
-                serial_port.close()
-            except serial.SerialException:
-                pass
-
         if self._thread is not None:
             self._thread.join(timeout=1.0)
 

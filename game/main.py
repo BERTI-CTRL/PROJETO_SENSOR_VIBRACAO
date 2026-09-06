@@ -20,7 +20,7 @@ from .config import (
 )
 from .controller import TiltController
 from .entities import Meteor, Ship, circle_hits_rect
-from .sensor_input import SensorReader
+from .sensor_input import SensorReader, SensorSample
 
 
 BACKGROUND = (7, 12, 33)
@@ -43,6 +43,19 @@ class Particle:
 def combine_direction(sensor_direction: float, keyboard_direction: int) -> float:
     """Combina os dois controles em um único valor seguro para a nave."""
     return max(-1.0, min(1.0, sensor_direction + keyboard_direction))
+
+
+def add_new_calibration_sample(
+    samples: list[float],
+    last_counter: int | None,
+    sample: SensorSample | None,
+) -> int | None:
+    """Inclui somente uma amostra recebida após a referência de calibração."""
+    if sample is None or (last_counter is not None and sample.counter <= last_counter):
+        return last_counter
+
+    samples.append(sample.ay)
+    return sample.counter
 
 
 def _new_ship() -> Ship:
@@ -157,6 +170,7 @@ def run() -> None:
     state = "calibration"
     calibration_started_at: float | None = None
     calibration_samples: list[float] = []
+    calibration_last_counter: int | None = None
     message = "Pressione C e deixe o sensor parado para calibrar."
     running = True
 
@@ -177,9 +191,15 @@ def run() -> None:
                         inverted = controller.toggle_inversion()
                         message = "Direção invertida." if inverted else "Direção normal restaurada."
                     elif event.key == pygame.K_c and state == "calibration":
-                        calibration_started_at = elapsed
-                        calibration_samples.clear()
-                        message = "Calibrando: mantenha o conjunto parado..."
+                        if reader.is_connected:
+                            calibration_started_at = elapsed
+                            calibration_samples.clear()
+                            calibration_last_counter = sample.counter if sample is not None else None
+                            message = "Calibrando: mantenha o conjunto parado..."
+                        else:
+                            controller.calibrate([0.0])
+                            state = "playing"
+                            message = "Modo teclado ativado. Desvie dos meteoros!"
                     elif event.key == pygame.K_r:
                         ship = _new_ship()
                         meteors.clear()
@@ -188,16 +208,24 @@ def run() -> None:
                         spawn_elapsed = 0.0
                         calibration_started_at = None
                         calibration_samples.clear()
+                        calibration_last_counter = None
                         state = "calibration"
                         message = "Nova partida. Pressione C para calibrar."
 
             if state == "calibration" and calibration_started_at is not None:
-                if sample is not None:
-                    calibration_samples.append(sample.ay)
+                calibration_last_counter = add_new_calibration_sample(
+                    calibration_samples,
+                    calibration_last_counter,
+                    sample,
+                )
                 if elapsed - calibration_started_at >= 1.5:
-                    controller.calibrate(calibration_samples or [0.0])
-                    state = "playing"
-                    message = "Calibrado! Desvie dos meteoros."
+                    if calibration_samples:
+                        controller.calibrate(calibration_samples)
+                        state = "playing"
+                        message = "Calibrado! Desvie dos meteoros."
+                    else:
+                        calibration_started_at = None
+                        message = "Nenhuma amostra chegou. Aguarde o sensor e pressione C novamente."
 
             keys = pygame.key.get_pressed()
             keyboard_direction = int(keys[pygame.K_RIGHT]) - int(keys[pygame.K_LEFT])

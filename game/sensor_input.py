@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from threading import Event, Lock, Thread
-from typing import Any
+from time import monotonic
+from typing import Any, Callable
 
 import serial
 
@@ -39,12 +40,24 @@ def parse_sensor_line(line: str) -> SensorSample | None:
 class SensorReader:
     """Lê a serial em background e expõe sempre a amostra mais recente."""
 
-    def __init__(self, port: str, baudrate: int) -> None:
+    def __init__(
+        self,
+        port: str,
+        baudrate: int,
+        stale_after_s: float = 0.5,
+        clock: Callable[[], float] = monotonic,
+    ) -> None:
+        if stale_after_s <= 0:
+            raise ValueError("stale_after_s precisa ser maior que zero.")
+
         self.port = port
         self.baudrate = baudrate
+        self.stale_after_s = stale_after_s
+        self._clock = clock
         self.status = "Sensor ainda não iniciado."
         self.is_connected = False
         self._latest: SensorSample | None = None
+        self._latest_at: float | None = None
         self._lock = Lock()
         self._stop_event = Event()
         self._thread: Thread | None = None
@@ -73,8 +86,13 @@ class SensorReader:
             self._thread.join(timeout=1.0)
 
     def latest_sample(self) -> SensorSample | None:
-        """Retorna uma cópia imutável da última leitura válida."""
+        """Retorna a última leitura válida apenas enquanto ela estiver recente."""
         with self._lock:
+            if self._latest is None or self._latest_at is None:
+                return None
+            if self._clock() - self._latest_at > self.stale_after_s:
+                self.status = "Sensor conectado, mas dados desatualizados."
+                return None
             return self._latest
 
     def _read_loop(self) -> None:
@@ -90,6 +108,8 @@ class SensorReader:
                     if sample is not None:
                         with self._lock:
                             self._latest = sample
+                            self._latest_at = self._clock()
+                        self.status = f"Sensor conectado em {self.port}."
         except (serial.SerialException, OSError) as error:
             if not self._stop_event.is_set():
                 self.status = f"Sem sensor: {error}"

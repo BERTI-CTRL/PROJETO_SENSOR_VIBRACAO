@@ -1,6 +1,6 @@
 # `grafico/plotar_csv.py`
 
-**Responsabilidade:** abrir um gráfico Plotly interativo para analisar com calma os dados já salvos em CSV.
+**Responsabilidade:** abrir um gráfico Plotly interativo para analisar com calma os dados já salvos em CSV conforme [[esquema-csv]].
 
 O script não acessa a porta serial e não altera os CSVs. Ele lê um arquivo existente e abre o resultado no navegador.
 
@@ -46,7 +46,9 @@ O arquivo gerado por `sensor/gravador.py` possui estas colunas:
 tempo_arduino_us, tempo_relogio_pc, contador, ax, ay, az, gx, gy, gz
 ```
 
-O script valida se `contador` e os seis eixos estão presentes antes de criar o gráfico.
+O script valida se `contador` e os seis eixos estão presentes antes de criar o gráfico. Ele encontra o CSV padrão pela data de modificação, resolve qualquer caminho informado em relação ao terminal e interrompe com erro se o resultado não for um arquivo.
+
+`tempo_arduino_us` e `tempo_relogio_pc` não formam o eixo visual: o contador deixa lacunas e ordem explícitas, inclusive quando a discussão de taxa e perdas em [[tempo-frequencia-e-perdas]] indicar uma anomalia.
 
 ## Dependências
 
@@ -54,3 +56,9 @@ O script valida se `contador` e os seis eixos estão presentes antes de criar o 
 - `plotly`
 
 Ambas já estão declaradas em `pyproject.toml`.
+
+## Relação com validação e calibração
+
+Rode [[testar_dados]] antes quando a continuidade e as faixas físicas importarem para a conclusão do ensaio. O gráfico pode desenhar um CSV que passou apenas na verificação mínima de colunas; ele não rejeita saltos, `NaN` ou dados fora da faixa por conta própria.
+
+Para ensaios de vibração com referência conhecida, [[calibrar_vibracao]] produz coeficientes em JSON sem modificar a captura. O Plotly continua exibindo os valores originais do CSV.

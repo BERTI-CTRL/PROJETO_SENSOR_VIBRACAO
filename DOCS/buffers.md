@@ -1,253 +1,38 @@
-# sensor/buffers.py
+# `sensor/buffers.py`
 
-> **Uso atual na interface:** `Janela` solicita `snapshot(150)` para desenhar
-> os gráficos e para calcular as estatísticas. O intervalo gráfico atual é
-> 33 ms; isso não altera a capacidade total do buffer, que permanece em 10.000
-> amostras.
+`BufferSensores` é a janela circular em memória que recebe cada amostra do [[coletor]]. Ele serve a [[janela]] e [[statistics]] sem substituir o histórico integral de gravação do [[esquema-csv]].
 
-**Responsabilidade:** Buffer circular thread-safe para armazenar histórico de amostras do MPU6050 com acesso otimizado via NumPy.  
-**Tipo:** Classe `BufferSensores`  
-**Thread-Safety:** Lock interno (`threading.Lock`) em todas as operações públicas
+## Estrutura e exclusão mútua
 
----
+O construtor usa capacidade padrão de 10.000 e cria `_dados = np.zeros((tamanho, 9), dtype=np.float64)`. As colunas são, nesta ordem:
 
-## Interface Pública
+| Índice | Coluna |
+|---:|---|
+| 0 | `tempo_arduino_us` |
+| 1 | `timestamp` |
+| 2 | `contador` |
+| 3–5 | `ax`, `ay`, `az` |
+| 6–8 | `gx`, `gy`, `gz` |
 
-```python
-class BufferSensores:
-    def __init__(self, tamanho: int = 10000):
-        """Cria buffer para 'tamanho' amostras (padrão 10.000)."""
-    
-    def adicionar(self, t_arduino_us, t_pc, contador, ax, ay, az, gx, gy, gz) -> None:
-        """Adiciona uma amostra (thread-safe)."""
-    
-    def vazio(self) -> bool:
-        """True se buffer não tem amostras."""
-    
-    def tamanho_atual(self) -> int:
-        """Quantidade de amostras armazenadas (≤ tamanho_maximo)."""
-    
-    def snapshot(self, quantidade: int = None) -> dict:
-        """
-        Retorna janela das últimas 'quantidade' amostras em ORDEM CRONOLÓGICA.
-        
-        Returns:
-            dict com chaves: tempo_arduino_us, timestamp, contador, ax, ay, az, gx, gy, gz
-            Cada valor é np.ndarray (cópia) com shape (quantidade,)
-        """
-    
-    def limpar(self) -> None:
-        """Remove todas as amostras (reset índice/contador)."""
-    
-    # PROPRIEDADES DE COMPATIBILIDADE (janela.py usa buffer.ax, buffer.contador, etc.)
-    @property
-    def tempo_arduino_us(self) -> np.ndarray: ...
-    @property
-    def timestamp(self) -> np.ndarray: ...
-    @property
-    def contador(self) -> np.ndarray: ...
-    @property
-    def ax(self) -> np.ndarray: ...
-    @property
-    def ay(self) -> np.ndarray: ...
-    @property
-    def az(self) -> np.ndarray: ...
-    @property
-    def gx(self) -> np.ndarray: ...
-    @property
-    def gy(self) -> np.ndarray: ...
-    @property
-    def gz(self) -> np.ndarray: ...
-```
+`_lock` protege escrita, contagens, snapshots, limpeza e leituras pelas propriedades. `_index` é a próxima posição física de escrita; `_count` é o número de amostras válidas, crescendo até a capacidade.
 
----
+## Escrita e snapshots
 
-## Estrutura Interna (NumPy 2D)
+`adicionar(...)` grava os nove valores em `_index`, avança com módulo da capacidade e só aumenta `_count` até o limite. Assim, após encher, a nova amostra substitui a mais antiga.
 
-```python
-# Array único contíguo: (tamanho_maximo, 9 colunas)
-# Colunas: 0=t_arduino_us, 1=t_pc, 2=contador, 3=ax, 4=ay, 5=az, 6=gx, 7=gy, 8=gz
-self._dados = np.zeros((tamanho, 9), dtype=np.float64)
+`snapshot(quantidade)` limita a solicitação a `_count` e devolve um dicionário com as nove chaves. Cada array é uma **cópia**, portanto a UI não observa mutações durante o desenho. Se o buffer ainda não encheu, a faixa é contígua. Se está cheio, há dois ramos:
 
-self._index = 0      # Próxima posição de escrita (circular)
-self._count = 0      # Total amostras escritas (cresce até tamanho_maximo)
-self._lock = Lock()  # Thread safety
-```
+1. quando o fim pedido não ultrapassa a capacidade, uma única fatia já contém a janela cronológica;
+2. quando atravessa o final físico, `np.concatenate` une a faixa final e a inicial.
 
----
+Nos dois casos a ordem é do mais antigo para o mais novo. `limpar()` apenas reinicia `_index` e `_count`; o array alocado é reutilizado.
 
-## Lógica de Wrap-Around (CRÍTICO)
+## Propriedades de compatibilidade
 
-### Escrita (`adicionar`)
-```
-┌─────────────────────────────────────────────────────────────┐
-│ self._dados[self._index] = [t_arduino, t_pc, contador,     │
-│                              ax, ay, az, gx, gy, gz]        │
-│ self._index = (self._index + 1) % self.tamanho_maximo       │
-│ if self._count < self.tamanho_maximo: self._count += 1      │
-└─────────────────────────────────────────────────────────────┘
+`tempo_arduino_us`, `timestamp`, `contador`, `ax`, `ay`, `az`, `gx`, `gy` e `gz` chamam `_get_coluna_slice`. Ele entrega a coluna inteira em ordem cronológica: vazia se não há dados, fatia direta antes de encher e concatenação de `_index:` com `:_index` após o wrap-around. Essas propriedades preservam os acessos diretos já usados pela interface.
 
-Exemplo (tamanho=5):
-  Inserção 0: index=0, count=1  → [0] _ _ _ _
-  Inserção 1: index=1, count=2  → [0,1] _ _ _
-  Inserção 4: index=4, count=5  → [0,1,2,3,4] (CHEIO)
-  Inserção 5: index=0, count=5  → [5,1,2,3,4] (sobrescreve 0)
-  Inserção 6: index=1, count=5  → [5,6,2,3,4] (sobrescreve 1)
-```
+O comportamento após a capacidade é especialmente importante para [[correcao-buffer-congelando-wrap-around]]: ordem física e ordem cronológica deixam de coincidir quando `_index` volta a zero.
 
-### Leitura Cronológica (`_get_coluna_slice`)
+## Limite de memória versus CSV
 
-```python
-def _get_coluna_slice(self, coluna_idx):
-    with self._lock:
-        if self._count == 0:
-            return self._dados[0:0, coluna_idx]  # array vazio
-        
-        if self._count < self.tamanho_maximo:
-            # Buffer NÃO cheio: dados contíguos em 0 até _count-1
-            return self._dados[:self._count, coluna_idx]
-        else:
-            # Buffer CHEIO + wrap: ordem cronológica = _index até fim, depois 0 até _index-1
-            return np.concatenate([
-                self._dados[self._index:, coluna_idx],   # Parte 1: mais antigos dos recentes
-                self._dados[:self._index, coluna_idx]    # Parte 2: mais recentes
-            ])
-```
-
-**Visualização wrap-around (tamanho=5, count=5, index=2):**
-```
-Armazenamento físico:     [5, 6, 2, 3, 4]
-                          ↑         ↑
-                          index=2   fim
-                          
-Ordem cronológica (retornada):
-  Parte 1: _dados[2:]  → [2, 3, 4]   (amostras 2,3,4)
-  Parte 2: _dados[:2]  → [5, 6]     (amostras 5,6 - mais recentes)
-  Resultado: [2, 3, 4, 5, 6]  ✓ (antigo → novo)
-```
-
-### `snapshot(quantidade)` com Wrap-Around
-
-```python
-def snapshot(self, quantidade=None):
-    with self._lock:
-        if quantidade is None: quantidade = self._count
-        quantidade = min(quantidade, self._count)
-        if quantidade == 0: return {col: empty_array ...}
-        
-        if self._count < self.tamanho_maximo:
-            # Contíguo: fatia direta
-            inicio = self._count - quantidade
-            return {col: self._dados[inicio:self._count, i].copy() ...}
-        else:
-            # Cheio: monta array cronológico completo, pega últimos 'quantidade'
-            dados_cron = np.concatenate([
-                self._dados[self._index:, :],
-                self._dados[:self._index, :]
-            ])
-            inicio = len(dados_cron) - quantidade
-            return {col: dados_cron[inicio:, i].copy() ...}
-```
-
----
-
-## Propriedades de Compatibilidade
-
-```python
-@property
-def contador(self): return self._get_coluna_slice(2)
-@property
-def ax(self): return self._get_coluna_slice(3)
-# ... ay(4), az(5), gx(6), gy(7), gz(8), t_arduino(0), t_pc(1)
-```
-
-**Por que existem:** `realtime/janela.py` acessa `buffer.contador[-1]`, `len(buffer.ax)`, `buffer.ax` diretamente. As propriedades mantêm **100% compatibilidade** com API de `deque` (retornam `np.ndarray` que suporta indexação, `len()`, `[-1]`).
-
----
-
-## ⚠️ Bugs Corrigidos
-
-### Bug: Buffer congelando após 10.000 amostras
-**Causa:** Propriedades e `snapshot()` retornavam ordem de **armazenamento físico** (0..9999) em vez de **ordem cronológica** após wrap-around.
-
-**Sintoma:** Janela mostrava contador fixo em 10000, gráfico parado.
-
-**Correção:** Implementar `_get_coluna_slice()` com `np.concatenate([_index:, :_index])` e fazer `snapshot()` montar apenas a janela cronológica solicitada. Assim, a interface não copia as 10.000 amostras quando precisa desenhar somente 150.
-
-**Documentação:** [[correcao-buffer-congelando-wrap-around]]
-
----
-
-## Performance
-
-| Operação | Complexidade | Tempo típico |
-|----------|--------------|--------------|
-| `adicionar()` | O(1) | ~0.5 µs |
-| `vazio()` | O(1) | ~0.1 µs |
-| `tamanho_atual()` | O(1) | ~0.1 µs |
-| `snapshot(k)` | O(k) copy | ~50 µs (k=150) |
-| Propriedades (ex: `buffer.ax`) | O(n) copy | ~200 µs (n=10000) |
-
-**Nota:** Propriedades fazem cópia completa (`np.ndarray.copy()`). Para UI frequente, prefira `snapshot(quantidade)` que copia só o necessário.
-
----
-
-## Uso na UI (`realtime/janela.py`)
-
-```python
-# Atualização gráfica (~30 FPS = 33ms)
-dados = self.manager.buffer.snapshot(PONTOS_GRAFICO)  # 150 pontos
-self.curva_ax.setData(dados['contador'], np.asarray(dados["ax"]), skipFiniteCheck=True)
-
-# Estatísticas (0.5 Hz = 500ms)
-dados_ax = self.manager.buffer.snapshot(PONTOS_GRAFICO)["ax"]
-est = calcular_estatisticas(dados_ax)
-```
-
----
-
-## Testes
-
-```bash
-# Teste unitário wrap-around
-python -c "
-import sys; sys.path.insert(0, '.')
-from sensor.buffers import BufferSensores
-import numpy as np
-
-b = BufferSensores(tamanho=10)
-for i in range(15): b.adicionar(i,i,i,i*0.1,i*0.2,i*0.3,i,i*2,i*3)
-snap = b.snapshot(10)
-print('OK' if np.array_equal(b.contador, snap['contador']) else 'FALHA')
-print('contador:', b.contador)
-print('snapshot:', snap['contador'])
-"
-```
-
----
-
-## Métricas de Memória
-
-| Configuração | Memória (aprox) |
-|--------------|-----------------|
-| 10.000 amostras × 9 × float64 | 720 KB |
-| 100.000 amostras × 9 × float64 | 7.2 MB |
-| Overhead Lock + índices | < 1 KB |
-
----
-
-## Dependências
-
-- `numpy` ≥ 2.4.6 (array 2D, concat, slice, copy)
-- `threading.Lock` (stdlib) - sincronização
-
----
-
-## Referências Cruzadas
-
-| Arquivo | Linha | Uso |
-|---------|-------|-----|
-| `sensor/coletor.py:15` | `self.buffer = BufferSensores()` | Instanciação |
-| `sensor/coletor.py:126` | `self.buffer.adicionar(...)` | Escrita (215 Hz) |
-| `sensor/manager.py:53` | `return self.coletor.buffer` | Acesso via property |
-| [[janela]] | - | Check vazio / Leitura UI / Property compat / Estatísticas |
+O buffer existe para leitura rápida e limitada da UI: no máximo 10.000 amostras na configuração padrão e, em geral, uma janela ainda menor solicitada por [[janela]]. Já a fila do [[coletor]] encaminha cada amostra aceita ao gravador, cujo CSV é o histórico persistente da sessão. Uma amostra descartada por fila cheia não chega ao CSV, mas já pode estar no buffer; essa distinção é detalhada em [[tempo-frequencia-e-perdas]].

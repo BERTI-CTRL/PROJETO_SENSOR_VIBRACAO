@@ -1,6 +1,7 @@
 # `realtime/gráfico.py`
 
-**Responsabilidade:** janela mínima para verificar rapidamente se `ax` chega ao Python.
+**Responsabilidade:** janela minima de depuracao para verificar rapidamente se
+`ax` chega ao Python. Ela nao substitui [[janela]], a interface principal.
 
 ## Quando usar
 
@@ -10,7 +11,10 @@ Use apenas para diagnóstico rápido: confirmar que a porta abre e que a acelera
 python realtime\gráfico.py
 ```
 
-Este arquivo inicia `manager.iniciar()` automaticamente e, ao fechar a janela, chama `manager.parar()`.
+Este arquivo cria `QApplication`, `Janela` e o event loop diretamente no nivel
+do modulo, sem guarda `__main__`. Portanto, deve ser executado como script e
+nao importado como biblioteca. Ele chama `manager.iniciar()` automaticamente
+e, ao fechar, delega o encerramento a [[manager]].
 
 ## Como funciona
 
@@ -22,7 +26,12 @@ manager.buffer.ax
 curva única amarela
 ```
 
-O timer roda a cada `16 ms` (~60 FPS). Ele acessa a propriedade `buffer.ax`, que pode copiar uma janela grande quando o buffer está cheio. Por isso é útil para poucos segundos de depuração, mas não é a opção indicada para teste sustentado de desempenho ou coleta longa.
+O timer proprio roda a cada `16 ms` (~60 FPS). A cada tick, ele ignora buffers
+com menos de dois pontos, le a propriedade de compatibilidade `buffer.ax`,
+converte-a em lista e desenha no maximo as ultimas 500 amostras. Essa
+propriedade pode copiar uma janela grande quando [[buffers]] esta cheio. Por
+isso o script e util para poucos segundos de depuracao, mas nao e indicado para
+teste sustentado de desempenho ou coleta longa.
 
 ## Diferença para a janela principal
 
@@ -37,10 +46,14 @@ O timer roda a cada `16 ms` (~60 FPS). Ele acessa a propriedade `buffer.ax`, que
 
 ## Relação com o pipeline
 
-Ele usa o mesmo `sensor.manager.manager` da interface principal. Portanto, também abre a porta serial e gera CSV. Não execute este script junto com `realtime.main`, pois os dois tentariam abrir a mesma porta.
+Ele usa o mesmo `sensor.manager.manager` da interface principal. Portanto,
+tambem abre a porta serial e gera CSV. Ao fechar, `manager.parar()` segue
+[[threads-e-encerramento]]. Nao execute este script junto com `realtime.main`,
+pois os dois tentariam abrir a mesma porta.
 
 ## Referências
 
 - [[manager]] — objeto que inicia a coleta.
+- [[buffers]] — origem da propriedade `ax`.
 - [[janela]] — interface principal recomendada.
 - [[plotar_csv]] — análise posterior do CSV.

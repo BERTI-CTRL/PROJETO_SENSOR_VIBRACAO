@@ -1,200 +1,27 @@
-# sensor/gravador.py
+# `sensor/gravador.py`
 
-**Responsabilidade:** Escrita de arquivos CSV com buffer interno (batch write) para performance de disco.  
-**Tipo:** Classe `GravadorCSV`  
-**Thread:** Usada pela thread `GravadorWorker` (não thread-safe por si só)
+`GravadorCSV` é a camada de escrita do histórico de uma sessão. O nome do arquivo Python é histórico e genérico, mas sua única responsabilidade atual é produzir o CSV consumido por [[plotar_csv]] e [[testar_dados]]. A thread [[gravador_worker]] é sua única usuária no fluxo normal.
 
----
+## Destino e cabeçalho
 
-## Interface Pública
+O construtor recebe `arquivo="dados/dados_aceleracao_giro.csv"`, porém esse parâmetro **não é usado** para decidir o caminho. O destino efetivo é sempre `dados/dados_aceleracao_giro-YYYY-MM-DD_HH-MM-SS.csv`, criado a partir de `datetime.now()`. Abrir em modo `"a"` preserva conteúdo se o caminho já existir; o cabeçalho é escrito somente quando ele não existia.
 
-```python
-class GravadorCSV:
-    def __init__(self, arquivo: str = "dados/dados_aceleracao_giro.csv", tamanho_buffer: int = 1000):
-        """
-        Args:
-            arquivo: Caminho base (timestamp é adicionado automaticamente)
-            tamanho_buffer: Linhas acumuladas antes de flush no disco
-        """
-    
-    def salvar(self, linha: list) -> None:
-        """Adiciona linha ao buffer interno. Flush automático ao atingir tamanho_buffer."""
-    
-    def fechar(self) -> None:
-        """Flush final do buffer restante e fecha arquivo. Deve ser chamado ao encerrar."""
-```
+Essa discrepância deve ser tratada como consideração de uma modificação futura: usar de fato `arquivo` exigiria definir se ele é caminho final, prefixo ou diretório e manter compatibilidade com os chamadores. Esta tarefa apenas a documenta, sem alterar a interface ou o comportamento.
 
----
+O escritor `csv.writer` usa o delimitador padrão, vírgula, e o cabeçalho estável de nove posições descrito em [[esquema-csv]]. `newline=""` evita linhas em branco extras no Windows e `encoding="utf-8"` define a codificação do arquivo.
 
-## Fluxo Interno
+## Buffer e fechamento
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ GravadorCSV.__init__()                                      │
-├─────────────────────────────────────────────────────────────┤
-│ timestamp = now() → "YYYY-MM-DD_HH-MM-SS"                   │
-│ arquivo_final = f"dados/dados_aceleracao_giro-{timestamp}.csv" │
-│ open(arquivo, mode="a", newline="", encoding="utf-8")       │
-│ csv.writer(arquivo)                                         │
-│ if arquivo_novo: writeheader([t_arduino, t_pc, contador,   │
-│                               ax, ay, az, gx, gy, gz])      │
-│ self.buffer = []  # Lista Python para batch                 │
-└─────────────────────────────────────────────────────────────┘
+`salvar(linha)` primeiro acrescenta a linha recebida ao `buffer` em memória. Quando `len(buffer) >= tamanho_buffer`, `writerows` grava o lote e `clear` libera a lista para reutilização. Portanto, a gravação não é uma operação de disco para cada amostra: a fila e o buffer desacoplam a aquisição descrita em [[coletor]] do I/O.
 
-┌─────────────────────────────────────────────────────────────┐
-│ salvar(linha)                                               │
-├─────────────────────────────────────────────────────────────┤
-│ self.buffer.append(linha)                                   │
-│ if len(self.buffer) >= self.tamanho_buffer:                 │
-│     self.writer.writerows(self.buffer)  # Batch write       │
-│     self.buffer.clear()                                     │
-└─────────────────────────────────────────────────────────────┘
+`fechar()` grava também o lote parcial que não atingiu `tamanho_buffer`, limpa o buffer e fecha o arquivo. [[gravador_worker]] chama esse método no seu `finally`; no encerramento normal coordenado por [[manager]], isso ocorre depois de consumir a sentinela `None`.
 
-┌─────────────────────────────────────────────────────────────┐
-│ fechar()                                                    │
-├─────────────────────────────────────────────────────────────┤
-│ if self.buffer:                                             │
-│     self.writer.writerows(self.buffer)  # Flush final       │
-│     self.buffer.clear()                                     │
-│ self.f.close()                                              │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Formato CSV Gerado
-
-```csv
-tempo_arduino_us,tempo_relogio_pc,contador,ax,ay,az,gx,gy,gz
-10002952,1722345678.123456,1,1.00,0.00,0.01,-3.48,0.61,-0.30
-10007644,1722345678.123498,2,0.99,0.00,0.02,-3.41,0.49,-0.06
-...
-```
-
-| Coluna | Tipo | Origem | Unidade |
-|--------|------|--------|---------|
-| `tempo_arduino_us` | int | `micros()` Arduino | µs |
-| `tempo_relogio_pc` | float | `time.perf_counter()` Python | s (epoch) |
-| `contador` | int | Incremental Arduino | - |
-| `ax, ay, az` | float | Acelerômetro MPU6050 | g |
-| `gx, gy, gz` | float | Giroscópio MPU6050 | °/s |
-
----
-
-## Configuração de Performance
-
-| Parâmetro | Valor Padrão | Impacto |
-|-----------|--------------|---------|
-| `tamanho_buffer` | 1000 linhas | Batch size (I/O calls) |
-| `newline=""` | Python 3 | Evita linhas em branco no Windows |
-| `encoding="utf-8"` | Padrão | Compatibilidade |
-
-**Por que batch write?**
-- Escrita síncrona linha-a-linha = ~1000 syscalls/s a 215 Hz (lento)
-- Batch 1000 = ~0.2 syscalls/s (rápido)
-- Tradeoff: até 1000 linhas em memória se crash (aceitável)
-
----
-
-## Uso pelo `GravadorWorker`
+## Interface
 
 ```python
-# sensor/gravador_worker.py
-class GravadorWorker(Thread):
-    def run(self):
-        gravador = GravadorCSV(tamanho_buffer=1000)
-        while True:
-            linha = self.fila.get()
-            if linha is None: break  # Sentinela
-            gravador.salvar(linha)
-            self.fila.task_done()
-        gravador.fechar()  # Flush final
+GravadorCSV(arquivo="dados/dados_aceleracao_giro.csv", tamanho_buffer=10000)
+salvar(linha)
+fechar()
 ```
 
----
-
-## Ciclo de Vida do Arquivo
-
-```
-Início aquisição          Durante                    Parada
-─────────────            ─────────                  ───────
-1. Cria arquivo         1. Acumula em buffer       1. Sentinela None
-2. Escreve header       2. A cada 1000 linhas:     2. gravador.fechar()
-3. Buffer = []            writerows() + clear()      - Flush buffer
-                                                   - Close file
-                                                   3. Arquivo completo
-```
-
-**Nome do arquivo:** `dados/dados_aceleracao_giro-2026-07-31_15-39-17.csv`
-
----
-
-## Tratamento de Erros
-
-```python
-# Em GravadorWorker.run()
-try:
-    gravador = GravadorCSV(...)
-    while True:
-        linha = self.fila.get()
-        if linha is None: break
-        gravador.salvar(linha)
-        self.fila.task_done()
-except Exception as erro:
-    self.erro = erro  # Disponível para UI/Manager
-    print(f"[Gravador] Erro: {erro}")
-finally:
-    if gravador:
-        try: gravador.fechar()
-        except Exception as e: self.erro = self.erro or e
-```
-
----
-
-## Métricas
-
-| Métrica | Valor |
-|---------|-------|
-| Batch size | 1000 linhas |
-| Taxa flush | ~0.2/s (a 215 Hz) |
-| Tamanho arquivo/hora | ~50 MB (215 Hz × 3600 × ~60 bytes) |
-| Overhead CPU | Negligível (<0.1%) |
-| Latência escrita | Assíncrona (não bloqueia aquisição) |
-
----
-
-## Testes
-
-```bash
-# Teste standalone
-python -c "
-import sys; sys.path.insert(0, '.')
-from sensor.gravador import GravadorCSV
-import time
-
-g = GravadorCSV(tamanho_buffer=5)
-for i in range(12):
-    g.salvar([i, time.time(), i, 0.1, 0.2, 0.3, 1, 2, 3])
-    time.sleep(0.01)
-g.fechar()
-print('CSV criado - verificar em dados/')
-"
-```
-
----
-
-## Dependências
-
-- `csv` (stdlib)
-- `pathlib.Path` (stdlib)
-- `datetime` (stdlib)
-
----
-
-## Referências Cruzadas
-
-| Arquivo | Linha | Relação |
-|---------|-------|---------|
-| [[gravador_worker]] | - | Instanciação / Escrita loop / Cleanup |
-| [[manager]] | - | Thread launch |
-| [[coletor]] | - | Produtor |
+`linha` deve manter a ordem de nove valores produzida por [[coletor]]. A classe não é compartilhada entre threads: o acesso ao arquivo pertence ao único [[gravador_worker]].

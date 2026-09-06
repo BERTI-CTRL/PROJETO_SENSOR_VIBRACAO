@@ -1,5 +1,5 @@
 """Meteor Dash: jogo de nave controlado por inclinação do MPU6050."""
-
+#.\.venv\Scripts\python.exe -m game.main
 from __future__ import annotations
 
 import math

@@ -1,159 +1,40 @@
-# sensor/serial_reader.py
+# `sensor/serial_reader.py`
 
-**Responsabilidade:** Leitura bruta da porta serial e parsing de linhas CSV do Arduino.  
-**Tipo:** Módulo utilitário (generator function)  
-**Thread:** Executa na thread do coletor (`coletor-serial`)
+`ler_dados` é a fronteira entre o CSV do firmware e a aquisição Python. Para o formato da linha, veja [[protocolo-serial]]; para o processamento posterior, veja [[coletor]].
 
----
-
-## Interface Pública
+## Interface
 
 ```python
-def ler_dados(porta: str, baudrate: int = 115200, timeout: float = 0.1,
-              deve_continuar: Callable[[], bool] | None = None) -> Generator[Tuple]:
-    """
-    Generator que lê linhas da serial e yield tuplas parseadas.
-    
-    Yields:
-        (tempo_arduino_us: float, timestamp_pc: float, contador: float,
-         ax: float, ay: float, az: float, gx: float, gy: float, gz: float)
-    """
+def ler_dados(porta, baudrate=230400, timeout=0.1, deve_continuar=None)
 ```
 
-```python
-def ler_dados_fake() -> Generator[Tuple]:
-    """Generator de dados sintéticos para teste sem Arduino (~100 Hz)."""
+É um gerador. Cada linha válida gera, nesta ordem, a tupla de nove valores:
+
+```text
+(tempo_arduino_us, timestamp_pc, contador, ax, ay, az, gx, gy, gz)
 ```
 
----
+O leitor abre a porta em um context manager, portanto o fechamento ocorre ao terminar a iteração. A abertura pode reiniciar a placa; por isso o módulo espera dois segundos, consultando `deve_continuar()` a cada 50 ms, e em seguida chama `reset_input_buffer()` para descartar bytes de inicialização.
 
-## Fluxo Interno
+## Parada e timeout
 
-```
-┌─────────────────────┐
-│ serial.Serial()     │  ──▶ Abre porta, configura baudrate/timeout
-│ espera cancelável 2s│  ──▶ Aguarda Arduino resetar (DTR/RTS)
-│ reset_input_buffer()│  ──▶ Limpa lixo inicial
-└─────────┬───────────┘
-          ▼
-┌─────────────────────┐
-│ while deve_continuar(): │
-│   timestamp = perf_counter()  (tempo PC alta resolução)
-│   linha = readline().decode().strip()
-│   if not linha: continue
-│   campos = split(",")
-│   if len != 8: continue
-│   map(float, campos) → 8 variáveis
-│   yield (t_arduino, t_pc, contador, ax, ay, az, gx, gy, gz)
-└─────────────────────┘
-```
+`deve_continuar` é opcional. Sem callback, a leitura continua; com callback, o laço termina quando ele retorna `False`. Como `readline()` pode estar bloqueado, o `timeout=0.1` também limita a espera por uma linha e, consequentemente, a latência usual da parada durante leitura. Quando ocorre timeout, a linha decodificada fica vazia e é ignorada; a porta não é reaberta.
 
----
+`decode('utf-8', errors='ignore').strip()` tolera bytes inválidos e remove terminadores. A linha só passa se `split(',')` produzir exatamente oito campos e todos puderem ser convertidos por `float`; caso contrário, `linhas_invalidas` é incrementado. Esse contador é diagnóstico interno: não é retornado nem exposto como métrica do `Coletor`.
 
-## Decisões de Design Críticas
+## Tempos e ordem
 
-| Decisão | Justificativa |
-|---------|---------------|
-| `readline()` + `timeout=0.1` | Bloqueia até `\n` → **garante linha completa**; timeout evita travamento |
-| `errors='ignore'` no decode | Descarta bytes corrompidos sem crashar |
-| `strip()` antes do split | Remove `\r\n` e espaços |
-| Validação `len(campos) == 8` | Filtra linhas parciais/corrompidas |
-| `map(float, ...)` em try/except | Captura `ValueError` de parsing |
-| Generator (`yield`) | **Lazy evaluation** - não acumula memória, stream direto para coletor |
-| `deve_continuar` + `timeout=0.1` | Permite ao botão Parar encerrar o leitor mesmo sem linhas válidas; a espera máxima é o timeout serial |
+`timestamp_pc` vem de `time.perf_counter()` imediatamente antes da tentativa de leitura. Ele informa quando o PC tentou receber a linha, mas não é a base da frequência do sensor. `tempo_arduino_us`, vindo de `micros()`, é o primeiro item retornado porque [[coletor]] o usa para calcular Hz. A diferença é detalhada em [[tempo-frequencia-e-perdas]].
 
----
+Há também `ler_dados_fake()`, um gerador manual de dados sintéticos. Ele preserva sua tupla histórica de oito valores e não é intercambiável com a tupla de nove valores de `ler_dados()`.
 
-## ⚠️ Bugs Corrigidos (Histórico)
+## Inconsistência de baud rate preservada
 
-### Bug: Pulando amostras / linhas inválidas
-**Causa:** Substituição de `readline()` por `in_waiting + read()` que lia bytes brutos e cortava linhas no meio.
+O parâmetro padrão atual de `ler_dados` é **230400**, mas o bloco `if __name__ == '__main__'` chama `ler_dados(porta="COM4", baudrate=115200)`. Além disso, o firmware em [[arduino_mpu6050]] contém `Serial.begin(115200)`. Essa divergência é documentada aqui porque uma taxa incompatível impede a leitura correta; nenhum valor foi alterado nesta tarefa.
 
-**Código Problemático (REMOVIDO):**
-```python
-# NÃO USE - QUEBRA LINHAS
-bytes_available = arduino.in_waiting
-if bytes_available > 0:
-    dados_brutos = arduino.read(bytes_available).decode('utf-8', errors='ignore')
-    linhas = dados_brutos.splitlines()  # Pode cortar linha no meio!
-```
+## Relações
 
-**Correção:** Restaurar `readline()` original (v1.0)
-
-**Documentação:** [[correcao-pulos-amostras-serial]]
-
----
-
-## Configuração Esperada do Arduino
-
-```cpp
-// arduino/mpu-6050/mpu-6050.ino
-Serial.begin(115200);  // DEVE COINCIDIR com baudrate=115200 no Python
-
-// Formato de saída (linha CSV terminada em \n):
-Serial.print(contador); Serial.print(",");
-Serial.print(micros()); Serial.print(",");
-Serial.print(ax); Serial.print(",");
-Serial.print(ay); Serial.print(",");
-Serial.print(az); Serial.print(",");
-Serial.print(gx); Serial.print(",");
-Serial.print(gy); Serial.print(",");
-Serial.println(gz);  // \n no final!
-```
-
----
-
-## Testes
-
-```bash
-# Teste direto da serial (sem coletor)
-python -c "
-import serial, time
-with serial.Serial('COM4', 115200, timeout=1) as s:
-    time.sleep(12)  # delay Arduino setup
-    s.reset_input_buffer()
-    t=time.time(); c=0
-    while time.time()-t<10:
-        l=s.readline().decode().strip()
-        if l: c+=1
-    print(f'{c/10:.1f} Hz')
-"
-
-# Teste via módulo
-python -c "
-import sys; sys.path.insert(0, '.')
-from sensor.serial_reader import ler_dados
-for i, dados in enumerate(ler_dados('COM4', 115200)):
-    print(dados)
-    if i > 5: break
-"
-```
-
----
-
-## Métricas
-
-| Métrica | Valor |
-|---------|-------|
-| Baud rate | 115200 |
-| Timeout readline | 0.1s |
-| Taxa real | ~215 Hz |
-| Bytes/linha | ~50-60 |
-| Throughput serial | ~11 KB/s |
-
----
-
-## Dependências
-
-- `pyserial` ≥ 3.5
-- `time` (stdlib)
-
----
-
-## Referências Cruzadas
-
-| Arquivo | Uso |
-|---------|-----|
-| `sensor/coletor.py:92` | `for ... in ler_dados(...):` |
-| `sensor/teste_manager.py` | Teste indireto via manager |
-| `arduino/mpu-6050/mpu-6050.ino` | Produtor dos dados |
+- [[arduino_mpu6050]] produz a linha de oito campos.
+- [[coletor]] passa porta, baud rate e callback de parada, então recebe a tupla de nove valores.
+- [[correcao-pulos-amostras-serial]] registra o cuidado de manter `readline()` para não cortar linhas.
+- [[protocolo-serial]] separa o CSV de transporte do CSV persistido.

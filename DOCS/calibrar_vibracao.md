@@ -1,6 +1,6 @@
 # `calibração/calibrar_vibracao.py`
 
-**Responsabilidade:** calcular um offset e um ganho para um eixo do acelerômetro a partir de uma vibração RMS conhecida.
+**Responsabilidade:** calcular um offset e um ganho para um eixo do acelerômetro a partir de uma vibração RMS conhecida em uma captura no formato de [[esquema-csv]].
 
 ## Cenário correto
 
@@ -20,7 +20,7 @@ python calibração\calibrar_vibracao.py 0.50 dados\teste.csv --eixo ax --descar
 
 ## Cálculo
 
-O script lê o CSV, descarta o início escolhido e calcula:
+O script escolhe o CSV mais recente em `dados/` quando nenhum caminho é passado; caso contrário, resolve e verifica o caminho escolhido. Em seguida, confirma que existem `tempo_arduino_us`, `contador` e o eixo solicitado, converte esses valores para números e descarta as linhas inválidas. O script lê o CSV, descarta o início escolhido e calcula:
 
 ```text
 offset = média do eixo
@@ -30,6 +30,8 @@ valor corrigido = ganho × (valor medido - offset)
 ```
 
 Ele salva um JSON como `calibração/calibracao_vibracao_ax.json`. O CSV original não é alterado e os coeficientes ainda não são aplicados automaticamente ao projeto.
+
+O baseline é a média do eixo após o descarte inicial; ele representa gravidade, inclinação fixa e offset naquele ensaio. O RMS é calculado depois de remover esse baseline, portanto mede somente o componente alternado. A estimativa de perdas vem dos saltos positivos do `contador`; sua semântica é a mesma de [[tempo-frequencia-e-perdas]]. RMS medido zero, referência não positiva e descarte negativo são rejeitados para evitar ganho indefinido ou sem significado físico.
 
 ## Próximo passo obrigatório
 
@@ -46,5 +48,7 @@ No estado atual, esta é uma análise posterior. `realtime/janela.py` e `grafico
 ## Referências
 
 - [[plotar_csv]] — inspeção visual do ensaio.
+- [[testar_dados]] — valida o cabeçalho, a continuidade e as faixas antes da calibração.
+- [[tempo-frequencia-e-perdas]] — explica tempos, Hz e perdas associados ao CSV.
 - [[coletor]] — futuro ponto de integração dos coeficientes.
 - `calibração/guia_calibracao_mpu6050.md` — procedimento completo e cuidados de bancada.

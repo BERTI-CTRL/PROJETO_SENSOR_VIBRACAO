@@ -1,157 +1,27 @@
-# sensor/gravador_worker.py
+# `sensor/gravador_worker.py`
 
-**Responsabilidade:** Thread dedicada para consumir a fila de gravação e persistir CSV sem bloquear a aquisição serial.  
-**Tipo:** Classe `GravadorWorker` (herda `threading.Thread`)  
-**Thread:** `gravador-csv` (daemon)
+`GravadorWorker` herda de `threading.Thread` e é o consumidor da fila de persistência. Ele recebe as linhas de nove valores que [[coletor]] produz e delega o arquivo a [[gravador]]. Assim, uma escrita lenta não bloqueia a leitura serial.
 
----
+## Execução da thread
 
-## Interface Pública
+O construtor registra a thread com nome `gravador-csv` e `daemon=True`. O atributo daemon evita que uma thread remanescente mantenha o processo vivo, mas não é a garantia de integridade do arquivo: o [[manager]] usa `join()` no encerramento normal para aguardar o flush e o fechamento.
 
-```python
-class GravadorWorker(Thread):
-    def __init__(self, fila: Queue, tamanho_buffer: int = 1000):
-        """
-        Args:
-            fila: Queue thread-safe compartilhada com Coletor
-            tamanho_buffer: Repassado para GravadorCSV (batch size)
-        """
-    
-    def run(self) -> None:
-        """Loop principal da thread. Consome fila até receber sentinela None."""
-    
-    @property
-    def erro(self) -> Exception | None:
-        """Erro capturado durante execução (para diagnóstico externo)."""
-```
+Em `run()`, `fila.get()` bloqueia de modo seguro até haver trabalho, sem loop de espera ativa. Cada item retirado é confirmado por `fila.task_done()` no `finally` interno, inclusive quando `salvar()` falha ou quando o item é a sentinela. Isso mantém a contabilidade da `Queue` consistente para um eventual `Queue.join()`.
 
----
+`None` é a sentinela enviada por [[manager]] depois que a thread do coletor termina. Ela não é uma linha CSV válida; ao recebê-la, o loop termina. A ordem completa está em [[threads-e-encerramento]].
 
-## Fluxo Interno (`run()`)
+## Erros e recursos
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ GravadorWorker.run()                                        │
-├─────────────────────────────────────────────────────────────┤
-│ gravador = GravadorCSV(tamanho_buffer=self.tamanho_buffer)  │
-│                                                             │
-│ while True:                                                 │
-│     linha = self.fila.get()          # Bloqueante           │
-│     try:                                                     │
-│         if linha is None: break       # SENTINELA DE PARADA │
-│         gravador.salvar(linha)        # Batch write interno │
-│     finally:                                                 │
-│         self.fila.task_done()         # Para Queue.join()   │
-│                                                             │
-│ # Cleanup (finally do try externo)                          │
-│ gravador.fechar()  # Flush buffer residual + close file     │
-└─────────────────────────────────────────────────────────────┘
-```
+Exceções durante a abertura, o consumo ou a gravação são guardadas em `worker.erro` e também impressas. O `finally` externo tenta `gravador.fechar()` sempre que a instância foi criada. Se o fechamento também falhar, a primeira exceção é preservada em `erro`, sem ocultar o problema original.
 
----
+Logo, o caminho normal assegura a chamada de fechamento; em cenários de falha, o trabalhador ainda tenta descarregar o buffer residual e fechar o descritor. A fila é thread-safe; `GravadorCSV` é acessado somente por esta thread.
 
-## Protocolo de Parada (Sentinela)
+## Interface
 
 ```python
-# Em SensorManager.parar():
-self.fila_gravacao.put(None)   # Envia sentinela
-self.gravador_thread.join()    # Aguarda thread terminar
-```
-
-**Por que sentinela?**
-- `Queue.get()` é bloqueante → thread dorme sem CPU
-- `None` é valor reservado que **nunca** é uma linha válida
-- `task_done()` chamado mesmo na sentinela → `Queue.join()` funciona
-
----
-
-## Tratamento de Erros
-
-```python
-try:
-    gravador = GravadorCSV(...)
-    while True:
-        linha = self.fila.get()
-        if linha is None: break
-        gravador.salvar(linha)
-        self.fila.task_done()
-except Exception as erro:
-    self.erro = erro              # Armazena para diagnóstico
-    print(f"[Gravador] Erro: {erro}")
-finally:
-    if gravador:
-        try: gravador.fechar()    # Sempre tenta flush final
-        except Exception as e:
-            self.erro = self.erro or e
-            print(f"[Gravador] Erro ao fechar CSV: {e}")
-```
-
-**Garantias:**
-- Arquivo **sempre fechado** (mesmo em erro)
-- Erro disponível via `worker.erro` para UI/Manager
-- `task_done()` em `finally` → não trava `Queue.join()`
-
----
-
-## Thread Safety
-
-| Recurso | Proteção |
-|---------|----------|
-| `fila` (Queue) | Thread-safe nativo (`get`, `put`, `task_done`) |
-| `GravadorCSV` | Acesso exclusivo desta thread (não compartilhado) |
-| `self.erro` | Escrita apenas aqui, leitura externa (atômico em CPython) |
-
----
-
-## Métricas
-
-| Métrica | Valor |
-|---------|-------|
-| CPU idle (fila vazia) | ~0% (bloqueado em `get()`) |
-| CPU ativo (215 Hz) | ~0.1% (batch write eficiente) |
-| Memória | GravadorCSV.buffer (≤1000 linhas) |
-| Latência fim-para-fim | < 5ms (assíncrono) |
-
----
-
-## Teste Standalone
-
-```bash
-python -c "
-import sys; sys.path.insert(0, '.')
-from sensor.gravador_worker import GravadorWorker
-from queue import Queue
-import time
-
-fila = Queue()
-worker = GravadorWorker(fila)
+GravadorWorker(fila, tamanho_buffer=1000)
 worker.start()
-
-# Enviar 2500 linhas (2.5x batch size)
-for i in range(2500):
-    fila.put([i, time.time(), i, 0.1, 0.2, 0.3, 1, 2, 3])
-
-fila.put(None)  # Sentinela
+# produtor insere linhas de nove valores e, ao terminar, None
 worker.join()
-print('Erro:', worker.erro)
-print('CSV em dados/')
-"
+erro = worker.erro
 ```
-
----
-
-## Dependências
-
-- `threading.Thread` (stdlib)
-- `queue.Queue` (stdlib)
-- `sensor.gravador.GravadorCSV`
-
----
-
-## Referências Cruzadas
-
-| Arquivo | Linha | Relação |
-|---------|-------|---------|
-| [[manager]] | - | Instanciação / Launch thread / Sinal parada / Aguarda fim |
-| [[coletor]] | - | Produtor |
-| [[gravador]] | - | Composição |

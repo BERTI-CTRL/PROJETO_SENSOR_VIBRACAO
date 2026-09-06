@@ -4,7 +4,10 @@
 
 ## O que a janela faz — e o que ela não faz
 
-A janela não abre a porta serial e não grava arquivos. Ela pede amostras ao buffer, desenha as curvas e apresenta estatísticas. O `manager` cria as threads de coleta e gravação.
+A janela nao abre a porta serial e nao grava arquivos diretamente. Ela pede
+snapshots a [[buffers]], desenha as curvas e apresenta estatisticas. O
+[[manager]] cria as threads de coleta e gravacao descritas em
+[[threads-e-encerramento]].
 
 ```text
 manager.buffer.snapshot(150)
@@ -31,7 +34,15 @@ INTERVALO_ESTATISTICAS_MS = 500 # 2 FPS
 PONTOS_GRAFICO = 150
 ```
 
-Em cada atualização gráfica, a janela lê as últimas 150 amostras, reutiliza um eixo X relativo (`0` até `n - 1`) e chama `setData()` apenas nas curvas marcadas. Ela não movimenta a faixa X a cada frame; isso foi removido porque o auto-scroll horizontal prejudicava a aquisição.
+Os timers sao independentes. A cada 33 ms, o timer grafico obtem **um unico
+snapshot** das ultimas 150 amostras, reutiliza um eixo X relativo (`0` ate
+`n - 1`) e chama `setData()` apenas nas curvas marcadas. Usar o mesmo snapshot
+mantem os seis eixos alinhados e evita seis leituras concorrentes. A faixa X
+nao e movimentada a cada frame.
+
+A cada 500 ms, outro timer obtem seu proprio snapshot unico de 150 amostras e
+atualiza status, frequencias, contadores e estatisticas dos seis eixos. Assim,
+o custo dos textos a 2 FPS nao reduz a cadencia visual aproximada de 30 FPS.
 
 O botão **Auto Escala** ativa o auto-range contínuo apenas do eixo Y. Depois do clique, picos novos podem aumentar a faixa Y enquanto X continua fixo. Se a interface ficar pesada em um computador específico, teste sem clicar nesse botão.
 
@@ -47,18 +58,30 @@ O botão **Auto Escala** ativa o auto-range contínuo apenas do eixo Y. Depois d
 
 ## Estatísticas mostradas
 
-O timer de 500 ms chama `utils.statistics.calcular_estatisticas()` para cada eixo usando outra janela de 150 amostras. A interface mostra:
+O timer de 500 ms chama [[statistics]] para cada eixo usando a mesma janela
+recente daquele tick. A interface mostra:
 
 - status da aquisição;
 - Hz médio, instantâneo e suavizado;
 - total de amostras e ocupação do buffer;
 - média, desvio padrão e RMS de cada eixo.
 
-Esses números descrevem apenas o trecho recente, não todo o CSV.
+Esses numeros descrevem apenas o trecho recente. A GUI nao acumula historico
+completo: o [[buffers]] e circular e a janela pede somente 150 pontos. O
+historico persistente da sessao pertence ao [[esquema-csv]].
 
 ## Relação com o Plotly
 
-Ao parar, a janela chama `grafico.plotar_csv.plotar_csv()`. O Plotly abre o **CSV completo**, por isso pode mostrar picos que já saíram das últimas 150 amostras da interface.
+Ao clicar **Parar**, a janela primeiro verifica se houve amostras, chama
+`manager.parar()` e espera o encerramento da sessao. Se uma coleta foi
+efetivamente encerrada, localiza o CSV mais recente e chama [[plotar_csv]]. O
+Plotly abre o **CSV completo**, por isso pode mostrar picos que ja sairam das
+ultimas 150 amostras da interface. Parar sem sessao/dados nao reabre um arquivo
+antigo; se nenhum CSV existir, o status informa a ausencia.
+
+O import duplicado de `pyqtgraph as pg` no codigo e redundante, mas foi
+preservado deliberadamente nesta rodada documental. A configuracao global
+desliga antialias e solicita OpenGL antes de os widgets serem criados.
 
 ## Execução
 

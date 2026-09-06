@@ -19,15 +19,24 @@ para monitoramento em tempo real. Para estimar uma populacao maior a partir
 de uma amostra, use ``ddof=1``.
 """
 
+# A docstring mostra um consumo ilustrativo de 1.000 pontos. Na integracao
+# atual, [[janela]] chama a funcao para seis snapshots de 150 amostras.
+
+# A dataclass agrupa o resultado sem codigo repetitivo; Iterable aceita listas,
+# deques, arrays e geradores vindos de [[buffers]].
 from dataclasses import dataclass
 from typing import Iterable
 
+# NumPy executa conversao, filtragem e calculos vetorizados.
 import numpy as np
 
 
+# Restringe a interface publica aos dois nomes usados pelos consumidores.
 __all__ = ["EstatisticasBasicas", "calcular_estatisticas"]
 
 
+# ``frozen=True`` impede alterar um resultado pronto; ``slots=True`` fixa seus
+# campos e evita um dicionario de atributos por instancia.
 @dataclass(frozen=True, slots=True)
 class EstatisticasBasicas:
     """Resultado das estatisticas descritivas de um unico sinal.
@@ -37,19 +46,19 @@ class EstatisticasBasicas:
     ``ddof=1`` exige pelo menos duas amostras.
     """
 
-    quantidade: int
-    amostras_invalidas: int
-    media: float
-    mediana: float
-    minimo: float
-    maximo: float
-    amplitude_pico_a_pico: float
-    variancia: float
-    desvio_padrao: float
-    rms: float
-    coeficiente_variacao_percentual: float
-    assimetria: float
-    curtose_excesso: float
+    quantidade: int  # Numero de valores finitos que entraram nos calculos.
+    amostras_invalidas: int  # Quantidade descartada de nan, inf e -inf.
+    media: float  # Nivel medio do trecho observado.
+    mediana: float  # Valor central resistente a extremos.
+    minimo: float  # Menor extremo finito.
+    maximo: float  # Maior extremo finito, nao o pico absoluto.
+    amplitude_pico_a_pico: float  # Distancia entre maximo e minimo.
+    variancia: float  # Dispersao calculada com o ddof solicitado.
+    desvio_padrao: float  # Raiz da variancia.
+    rms: float  # Magnitude energetica quadratica media.
+    coeficiente_variacao_percentual: float  # Dispersao relativa a media.
+    assimetria: float  # Terceiro momento padronizado.
+    curtose_excesso: float  # Quarto momento padronizado menos tres.
 
 
 def calcular_estatisticas(
@@ -73,6 +82,7 @@ def calcular_estatisticas(
         descartada fica registrada em ``amostras_invalidas`` para que a
         interface possa sinalizar uma eventual falha no sinal.
     """
+    # Graus de liberdade negativos nao representam uma variancia suportada.
     if ddof < 0:
         raise ValueError("ddof deve ser maior ou igual a zero")
 
@@ -87,9 +97,14 @@ def calcular_estatisticas(
     quantidade = int(validas.size)
     amostras_invalidas = int(amostras.size - validas.size)
 
+    # Sem finitos, todas as medidas numericas ficam explicitamente indefinidas,
+    # mas a contagem das entradas descartadas continua disponivel.
     if quantidade == 0:
         return _resultado_indefinido(amostras_invalidas)
 
+    # Resume posicao e extremos apenas sobre as amostras finitas. A diferenca
+    # entre os extremos e a amplitude pico a pico; a API atual nao calcula um
+    # pico absoluto nem o fator de crista (pico absoluto dividido pelo RMS).
     media = float(np.mean(validas))
     mediana = float(np.median(validas))
     minimo = float(np.min(validas))
@@ -100,6 +115,8 @@ def calcular_estatisticas(
     # medida de intensidade energetica do sinal, independentemente do sinal.
     rms = float(np.sqrt(np.mean(np.square(validas))))
 
+    # NumPy exige mais observacoes do que graus de liberdade. Caso contrario,
+    # variancia e desvio sao indefinidos em vez de emitirem um valor enganoso.
     if quantidade > ddof:
         variancia = float(np.var(validas, ddof=ddof))
         desvio_padrao = float(np.sqrt(variancia))
@@ -126,6 +143,7 @@ def calcular_estatisticas(
         assimetria = float("nan")
         curtose_excesso = float("nan")
 
+    # Reune todas as medidas em um registro imutavel consumido pela [[janela]].
     return EstatisticasBasicas(
         quantidade=quantidade,
         amostras_invalidas=amostras_invalidas,
@@ -145,6 +163,8 @@ def calcular_estatisticas(
 
 def _resultado_indefinido(amostras_invalidas: int) -> EstatisticasBasicas:
     """Cria o resultado usado quando a sequencia nao possui valor valido."""
+    # A mesma instancia escalar nan preenche todos os campos numericos; somente
+    # as duas contagens permanecem definidas para diagnostico da entrada.
     nan = float("nan")
     return EstatisticasBasicas(
         quantidade=0,

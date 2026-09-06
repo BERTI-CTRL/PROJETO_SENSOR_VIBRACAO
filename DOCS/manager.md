@@ -1,202 +1,31 @@
-# sensor/manager.py
+# `sensor/manager.py`
 
-**Responsabilidade:** Facade/Orquestrador - gerencia ciclo de vida completo do pipeline de aquisição (Coletor + GravadorWorker).  
-**Tipo:** Classe `SensorManager` + instância global `manager`  
-**Thread:** Cria e gerencia threads `coletor-serial` e `gravador-csv`
+`SensorManager` coordena uma sessão de aquisição completa: [[coletor]] produz as linhas, [[gravador_worker]] as persiste e `buffer` expõe o histórico circular à interface. A instância global `manager = SensorManager()` é um singleton prático: módulos como [[janela]] e [[teste_manager]] importam o mesmo objeto, mas a classe continua podendo ser instanciada em testes.
 
----
+## Início
 
-## Interface Pública
+`iniciar()` não faz nada quando `self.thread` existe e ainda está viva, prevenindo um início duplicado da mesma sessão. Caso contrário, ele cria `Queue(maxsize=50_000)`, injeta essa fila no coletor, cria/inicia `GravadorWorker` e só então cria/inicia a thread daemon `coletor-serial` que chama `coletor.executar`.
 
-```python
-class SensorManager:
-    def __init__(self):
-        self.coletor = Coletor()              # Instancia coletor
-        self.thread = None                    # Thread coletor
-        self.fila_gravacao = None             # Queue compartilhada
-        self.gravador_thread = None           # Thread gravador
-    
-    def iniciar(self) -> None:
-        """Inicia pipeline completo: fila → gravador → coletor."""
-    
-    def parar(self) -> bool:
-        """Para pipeline graciosamente e informa se havia uma sessão ativa."""
-    
-    @property
-    def buffer(self) -> BufferSensores:
-        """Acesso direto ao buffer do coletor (para UI)."""
+A ordem importa: o consumidor já está bloqueado em `Queue.get()` antes de o produtor poder enfileirar a primeira amostra. A capacidade de 50.000 itens absorve picos de disco; se esgotar, [[coletor]] contabiliza as linhas que não foram enfileiradas sem bloquear a serial, como descrito em [[tempo-frequencia-e-perdas]].
 
-# Instância global (singleton prático)
-manager = SensorManager()
-```
+## Parada e retorno
 
----
+`parar()` retorna `False` quando não há thread do coletor, isto é, não havia sessão para encerrar. Com sessão ativa, retorna `True` após seguir esta ordem:
 
-## Fluxo `iniciar()`
+1. chama `coletor.parar()` para abaixar a flag cooperativa;
+2. faz `join()` na thread do coletor, impedindo novas inserções após a sentinela;
+3. coloca `None` na fila de gravação;
+4. faz `join()` no gravador para esperar consumo, flush e `close()`;
+5. limpa `thread`, `gravador_thread` e `fila_gravacao` com `None`.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ SensorManager.iniciar()                                     │
-├─────────────────────────────────────────────────────────────┤
-│ if thread viva: return  # Idempotente                        │
-│                                                             │
-│ # 1. Fila de gravação (buffer de pico)                     │
-│ self.fila_gravacao = Queue(maxsize=50_000)                 │
-│ self.coletor.configurar_fila_gravacao(self.fila_gravacao)  │
-│                                                             │
-│ # 2. Thread gravador (daemon)                              │
-│ self.gravador_thread = GravadorWorker(self.fila_gravacao)  │
-│ self.gravador_thread.start()  # Inicia run()               │
-│                                                             │
-│ # 3. Thread coletor (daemon)                               │
-│ self.thread = Thread(                                       │
-│     target=self.coletor.executar,                           │
-│     name="coletor-serial",                                  │
-│     daemon=True                                             │
-│ )                                                           │
-│ self.thread.start()  # Inicia loop de aquisição             │
-└─────────────────────────────────────────────────────────────┘
-```
+A limpeza das referências permite uma nova chamada de `iniciar()`. Os detalhes dos três contextos de execução e a sequência visual estão em [[threads-e-encerramento]].
 
----
-
-## Fluxo `parar()`
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ SensorManager.parar()                                       │
-├─────────────────────────────────────────────────────────────┤
-│ if self.thread is None: return False                        │
-│                                                             │
-│ self.coletor.parar()       # Seta rodando=False             │
-│                                                             │
-│ if self.thread:                                          │
-│     self.thread.join()     # Aguarda loop terminar         │
-│                                                             │
-│ # Sentinela para gravador esvaziar fila + fechar arquivo   │
-│ if self.fila_gravacao:                                    │
-│     self.fila_gravacao.put(None)                          │
-│                                                             │
-│ if self.gravador_thread:                                 │
-│     self.gravador_thread.join()  # Aguarda flush + close   │
-│                                                             │
-│ # Reset referências                                        │
-│ self.thread = None                                        │
-│ self.gravador_thread = None                               │
-│ self.fila_gravacao = None                                 │
-│ return True                                                 │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Design Decisions
-
-| Decisão | Justificativa |
-|---------|---------------|
-| `Queue(maxsize=50_000)` | Buffer de pico ~3.8 min a 215 Hz; evita OOM se disco lento |
-| Threads `daemon=True` | Programa encerra mesmo se join falhar (segurança) |
-| `configurar_fila_gravacao()` | Injeção de dependência → Coletor não cria Queue |
-| Instância global `manager` | Acesso simples: `from sensor.manager import manager` |
-| `parar()` idempotente | Seguro chamar múltiplas vezes; retorna `False` se não havia sessão |
-
----
-
-## Uso Típico
+## Interface
 
 ```python
-# CLI simples (sensor/teste_manager.py)
-from sensor.manager import manager
-import time
-
-manager.iniciar()
-try:
-    while True:
-        if not manager.buffer.vazio():
-            print(f"Contador: {manager.buffer.contador[-1]:.0f} | "
-                  f"Amostras: {len(manager.buffer.contador)}")
-        time.sleep(1)
-except KeyboardInterrupt:
-    pass
-finally:
-    manager.parar()
-
-# UI PyQt (realtime/janela.py)
-from sensor.manager import manager
-
-class Janela(QMainWindow):
-    def iniciar(self):
-        self.manager.iniciar()  # Usa instância global
-    
-    def parar(self):
-        self.manager.parar()
-    
-    def atualizar_grafico(self):
-        dados = self.manager.buffer.snapshot(150)
-        # ...
+manager.iniciar()       # inicia se não houver coletor vivo
+encerrou = manager.parar()  # True se uma sessão foi encerrada
+buffer = manager.buffer
 ```
 
----
-
-## Thread Safety
-
-| Recurso | Acesso | Proteção |
-|---------|--------|----------|
-| `fila_gravacao` | Coletor (put) + Gravador (get) | `Queue` nativo |
-| `coletor.buffer` | Coletor (write) + UI (read) | `BufferSensores._lock` |
-| `coletor.rodando` | Manager (write) + Coletor (read) | Acesso atômico bool |
-| `thread` / `gravador_thread` | Manager apenas | Single-writer |
-
----
-
-## Métricas
-
-| Métrica | Valor |
-|---------|-------|
-| Tempo `iniciar()` | ~2.1s (inclui `time.sleep(2)` no serial_reader) |
-| Tempo `parar()` | ~0.5s (join threads + flush CSV) |
-| Overhead memória | Queue(50k) ≈ 4 MB + threads |
-| CPU manager thread | ~0% (apenas coordenação) |
-
----
-
-## Testes
-
-```bash
-# Teste rápido via módulo
-python -m sensor.teste_manager
-
-# Teste programático
-python -c "
-import sys; sys.path.insert(0, '.')
-from sensor.manager import manager
-import time
-
-manager.iniciar()
-time.sleep(5)
-print(f'Amostras: {len(manager.buffer.contador)}')
-print(f'Hz: {manager.coletor.hz_medio:.1f}')
-manager.parar()
-"
-```
-
----
-
-## Dependências
-
-- `queue.Queue` (stdlib)
-- `threading.Thread` (stdlib)
-- `sensor.coletor.Coletor`
-- `sensor.gravador_worker.GravadorWorker`
-
----
-
-## Referências Cruzadas
-
-| Arquivo | Linha | Relação |
-|---------|-------|---------|
-| `sensor/__init__.py` | - | Exporta `manager` |
-| [[coletor]] | - | Composição |
-| [[gravador_worker]] | - | Composição |
-| [[janela]] | - | UI usa global / Botão Iniciar / Botão Parar / Leitura UI |
-| `sensor/teste_manager.py:3` | `from sensor.manager import manager` | CLI teste |
+`buffer` apenas encaminha `coletor.buffer`; ele não cria uma cópia. Consulte [[buffers]] para retenção, snapshots e sincronização do histórico em memória.

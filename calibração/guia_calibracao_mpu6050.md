@@ -13,8 +13,10 @@ referência conhecida
         ↓ compara
 MPU6050 do projeto ──► calcula erro ──► cria calibração
                                                 ↓
-                               novas medições ──► valores corrigidos
+novas medições ──► valores corrigidos
 ~~~
+
+As características do componente que sustentam esse procedimento estão resumidas em [[invensense-pontos-utilizados]]. O arquivo de cada ensaio deve obedecer ao contrato de [[esquema-csv]]; antes de interpretar uma amplitude, confira taxa e perdas como descrito em [[tempo-frequencia-e-perdas]].
 
 O firmware atual já converte valores brutos do sensor para g e °/s. Isso é uma conversão de unidade usando a sensibilidade nominal do componente. Não é uma calibração completa.
 
@@ -247,6 +249,8 @@ Repita cada condição ao menos três vezes.
 
 O script grafico/plotar_csv.py ajuda a fazer inspeção visual. Para medir frequência e fase quantitativamente, o próximo passo é incluir FFT e comparação automática com a referência.
 
+Antes da inspeção visual, execute [[testar_dados]] na captura. Ele verifica o cabeçalho, saltos do contador, tempos e faixas físicas sem alterar o arquivo do ensaio.
+
 ## 8. Vibração linear não calibra o giroscópio
 
 Uma mesa que sobe, desce ou se move lateralmente produz aceleração linear. Ela é adequada para caracterizar o acelerômetro, mas não fornece necessariamente uma velocidade angular conhecida.
@@ -464,6 +468,8 @@ O script faz somente quatro coisas:
 4. calcula `ganho = RMS conhecido / RMS medido`.
 
 O JSON salvo contém a fórmula `valor_corrigido = ganho × (valor_medido - offset)`. Não o integre ainda no `coletor.py`: faça uma segunda captura na mesma vibração conhecida e confira se o RMS corrigido fica próximo da referência.
+
+O comportamento exato desse cálculo, seus argumentos e o nome do JSON estão documentados em [[calibrar_vibracao]].
 
 **Cuidado:** informe RMS com RMS. Se a bancada informar valor de pico ou pico a pico, converta antes de executar o script.
 

@@ -1,0 +1,27 @@
+{
+  "nodes": [
+    {"id": "titulo", "type": "text", "text": "# Fluxo de aquisição\nUma amostra, do MPU6050 até a análise.", "x": 100, "y": -300, "width": 560, "height": 90, "color": "4"},
+    {"id": "arduino", "type": "text", "text": "[[arduino_mpu6050|Arduino + MPU6050]]\n8 campos CSV pela serial", "x": 100, "y": -120, "width": 260, "height": 90, "color": "1"},
+    {"id": "serial", "type": "text", "text": "[[serial_reader]]\nValida, converte e acrescenta o timestamp do PC", "x": 100, "y": 60, "width": 260, "height": 100},
+    {"id": "coletor", "type": "text", "text": "[[coletor]]\nMede Hz e perdas; duplica a amostra para RAM e fila", "x": 100, "y": 260, "width": 260, "height": 100, "color": "2"},
+    {"id": "buffer", "type": "text", "text": "[[buffers]]\nBuffer circular na RAM\nsnapshot cronológico", "x": -260, "y": 480, "width": 260, "height": 100, "color": "3"},
+    {"id": "janela", "type": "text", "text": "[[janela]]\nGráficos e estatísticas\ndas últimas 150 amostras", "x": -260, "y": 680, "width": 260, "height": 100, "color": "3"},
+    {"id": "fila", "type": "text", "text": "Queue(maxsize=50_000)\nDesacopla serial e disco", "x": 460, "y": 480, "width": 260, "height": 90, "color": "5"},
+    {"id": "worker", "type": "text", "text": "[[gravador_worker]]\nThread consumidora da fila", "x": 460, "y": 660, "width": 260, "height": 90, "color": "5"},
+    {"id": "gravador", "type": "text", "text": "[[gravador]]\nEscrita em lotes", "x": 460, "y": 840, "width": 260, "height": 80, "color": "5"},
+    {"id": "csv", "type": "text", "text": "[[esquema-csv|CSV em dados/]]\nHistórico persistente da sessão", "x": 460, "y": 1000, "width": 260, "height": 90, "color": "6"},
+    {"id": "plotly", "type": "text", "text": "[[plotar_csv]]\nAnálise posterior do histórico completo", "x": 460, "y": 1180, "width": 260, "height": 90, "color": "6"}
+  ],
+  "edges": [
+    {"id": "e1", "fromNode": "titulo", "fromSide": "bottom", "toNode": "arduino", "toSide": "top"},
+    {"id": "e2", "fromNode": "arduino", "fromSide": "bottom", "toNode": "serial", "toSide": "top"},
+    {"id": "e3", "fromNode": "serial", "fromSide": "bottom", "toNode": "coletor", "toSide": "top"},
+    {"id": "e4", "fromNode": "coletor", "fromSide": "bottom", "toNode": "buffer", "toSide": "top"},
+    {"id": "e5", "fromNode": "buffer", "fromSide": "bottom", "toNode": "janela", "toSide": "top"},
+    {"id": "e6", "fromNode": "coletor", "fromSide": "bottom", "toNode": "fila", "toSide": "top"},
+    {"id": "e7", "fromNode": "fila", "fromSide": "bottom", "toNode": "worker", "toSide": "top"},
+    {"id": "e8", "fromNode": "worker", "fromSide": "bottom", "toNode": "gravador", "toSide": "top"},
+    {"id": "e9", "fromNode": "gravador", "fromSide": "bottom", "toNode": "csv", "toSide": "top"},
+    {"id": "e10", "fromNode": "csv", "fromSide": "bottom", "toNode": "plotly", "toSide": "top"}
+  ]
+}

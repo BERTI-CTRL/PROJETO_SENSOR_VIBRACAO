@@ -1,0 +1,23 @@
+{
+  "nodes": [
+    {"id": "titulo", "type": "text", "text": "# Concorrência e encerramento\nQuem trabalha em cada contexto e como a sessão termina com segurança.", "x": 0, "y": -340, "width": 760, "height": 90, "color": "4"},
+    {"id": "main", "type": "text", "text": "[[main]]\nCria QApplication e abre a interface", "x": 0, "y": -150, "width": 250, "height": 90, "color": "1"},
+    {"id": "ui", "type": "text", "text": "[[janela]]\nEvent loop Qt\nBotões Iniciar / Parar", "x": 0, "y": 30, "width": 250, "height": 100, "color": "1"},
+    {"id": "manager", "type": "text", "text": "[[manager]]\nCoordena a sessão\ne controla a ordem de parada", "x": 0, "y": 240, "width": 250, "height": 100, "color": "2"},
+    {"id": "threadcoletor", "type": "text", "text": "Thread coletor-serial\nexecuta [[coletor]]\nleitura e buffer", "x": -380, "y": 470, "width": 260, "height": 100, "color": "3"},
+    {"id": "fila", "type": "text", "text": "Queue(maxsize=50_000)\nprodutor → consumidor", "x": 0, "y": 470, "width": 250, "height": 90, "color": "5"},
+    {"id": "threadgravador", "type": "text", "text": "Thread gravador-csv\nexecuta [[gravador_worker]]\nusa [[gravador]]", "x": 390, "y": 470, "width": 270, "height": 100, "color": "5"},
+    {"id": "parar", "type": "text", "text": "# Parada cooperativa\n1. parar() abaixa a flag\n2. join do coletor\n3. put(None) na fila\n4. join do gravador\n5. flush e close do CSV", "x": 0, "y": 700, "width": 660, "height": 170, "color": "6"},
+    {"id": "referencia", "type": "text", "text": "[[threads-e-encerramento]]\nExplicação detalhada da sequência", "x": 0, "y": 970, "width": 300, "height": 80, "color": "6"}
+  ],
+  "edges": [
+    {"id": "e1", "fromNode": "titulo", "fromSide": "bottom", "toNode": "main", "toSide": "top"},
+    {"id": "e2", "fromNode": "main", "fromSide": "bottom", "toNode": "ui", "toSide": "top"},
+    {"id": "e3", "fromNode": "ui", "fromSide": "bottom", "toNode": "manager", "toSide": "top"},
+    {"id": "e4", "fromNode": "manager", "fromSide": "bottom", "toNode": "threadcoletor", "toSide": "top"},
+    {"id": "e5", "fromNode": "threadcoletor", "fromSide": "right", "toNode": "fila", "toSide": "left"},
+    {"id": "e6", "fromNode": "fila", "fromSide": "right", "toNode": "threadgravador", "toSide": "left"},
+    {"id": "e7", "fromNode": "manager", "fromSide": "bottom", "toNode": "parar", "toSide": "top"},
+    {"id": "e8", "fromNode": "parar", "fromSide": "bottom", "toNode": "referencia", "toSide": "top"}
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "nodes": [
+    {"id": "titulo", "type": "text", "text": "# Interface em tempo real\nComo a Janela usa timers para mostrar dados sem ler a serial diretamente.", "x": 0, "y": -300, "width": 780, "height": 90, "color": "4"},
+    {"id": "main", "type": "text", "text": "[[main]]\nCria QApplication e [[janela]]", "x": 0, "y": -120, "width": 250, "height": 80, "color": "1"},
+    {"id": "janela", "type": "text", "text": "[[janela]]\nWidgets, controles e dois gráficos", "x": 0, "y": 40, "width": 250, "height": 90, "color": "2"},
+    {"id": "buffer", "type": "text", "text": "[[buffers]]\nsnapshot(150)\ncópia consistente", "x": -350, "y": 250, "width": 250, "height": 90, "color": "3"},
+    {"id": "timerplot", "type": "text", "text": "QTimer do gráfico\n33 ms ≈ 30 FPS", "x": 0, "y": 250, "width": 250, "height": 80, "color": "5"},
+    {"id": "curvas", "type": "text", "text": "6 curvas PyQtGraph\nax, ay, az, gx, gy, gz\njanela visual: 150 pontos", "x": 0, "y": 430, "width": 260, "height": 100, "color": "5"},
+    {"id": "timerstats", "type": "text", "text": "QTimer das estatísticas\n500 ms = 2 FPS", "x": 360, "y": 250, "width": 260, "height": 80, "color": "6"},
+    {"id": "stats", "type": "text", "text": "[[statistics]]\nMédia, desvio padrão e RMS\npara os seis eixos", "x": 360, "y": 430, "width": 260, "height": 100, "color": "6"},
+    {"id": "controles", "type": "text", "text": "Iniciar / Parar / Limpar / Auto Escala\nIniciar e Parar chamam [[manager]]", "x": 0, "y": 650, "width": 300, "height": 100, "color": "2"},
+    {"id": "csv", "type": "text", "text": "Parar encerra a sessão\ne localiza o [[esquema-csv|CSV mais recente]]", "x": 390, "y": 650, "width": 270, "height": 90, "color": "3"},
+    {"id": "plotly", "type": "text", "text": "[[plotar_csv]]\nVisualiza o histórico completo", "x": 390, "y": 820, "width": 270, "height": 80, "color": "3"}
+  ],
+  "edges": [
+    {"id": "e1", "fromNode": "titulo", "fromSide": "bottom", "toNode": "main", "toSide": "top"},
+    {"id": "e2", "fromNode": "main", "fromSide": "bottom", "toNode": "janela", "toSide": "top"},
+    {"id": "e3", "fromNode": "janela", "fromSide": "bottom", "toNode": "timerplot", "toSide": "top"},
+    {"id": "e4", "fromNode": "buffer", "fromSide": "right", "toNode": "timerplot", "toSide": "left"},
+    {"id": "e5", "fromNode": "timerplot", "fromSide": "bottom", "toNode": "curvas", "toSide": "top"},
+    {"id": "e6", "fromNode": "janela", "fromSide": "right", "toNode": "timerstats", "toSide": "top"},
+    {"id": "e7", "fromNode": "buffer", "fromSide": "right", "toNode": "timerstats", "toSide": "left"},
+    {"id": "e8", "fromNode": "timerstats", "fromSide": "bottom", "toNode": "stats", "toSide": "top"},
+    {"id": "e9", "fromNode": "janela", "fromSide": "bottom", "toNode": "controles", "toSide": "top"},
+    {"id": "e10", "fromNode": "controles", "fromSide": "right", "toNode": "csv", "toSide": "left"},
+    {"id": "e11", "fromNode": "csv", "fromSide": "bottom", "toNode": "plotly", "toSide": "top"}
+  ]
+}

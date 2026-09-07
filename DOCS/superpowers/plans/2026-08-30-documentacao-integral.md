@@ -581,3 +581,4 @@ Verificar primeiro que o caminho resolvido termina em `PROJETO_SENSOR_VIBRACAO\\
 - [ ] **Step 8: Entregar o mapa de leitura**
 
 Informar ao usuário: entrada principal, quatro canvases, nota da InvenSense, guia de modificação, verificações executadas e quaisquer inconsistências documentadas sem correção funcional.
+#PROJETO_SENSOR_VIBRAÇÃO

@@ -43,3 +43,4 @@ Na montagem fotografada, os dados parados existentes mostram `ax` próximo de `+
 - **Quer testar sem hardware:** pressione `C` e use as setas.
 
 O jogo lê a serial em uma thread própria e não grava CSV. Dessa forma, ele não altera o pipeline de coleta e análise do restante do projeto.
+#PROJETO_SENSOR_VIBRAÇÃO

@@ -475,16 +475,27 @@ PROJETO_SENSOR_VIBRACAO/
 └── pyproject.toml                  # dependências Python
 ```
 
-## Documentação complementar
+## Documentação: caminho de leitura
 
-A pasta [DOCS](DOCS) contém páginas mais específicas para cada componente. Os melhores pontos de partida são:
+A pasta [DOCS](DOCS) reúne a documentação detalhada e organizada por assunto. Para entender o projeto antes de alterar o código, siga esta ordem:
 
-- [DOCS/INDEX.md](DOCS/INDEX.md)
-- [DOCS/ARQUITETURA.md](DOCS/ARQUITETURA.md)
-- [DOCS/janela.md](DOCS/janela.md)
-- [DOCS/plotar_csv.md](DOCS/plotar_csv.md)
-- [DOCS/calibrar_vibracao.md](DOCS/calibrar_vibracao.md)
-- [calibração/guia_calibracao_mpu6050.md](calibração/guia_calibracao_mpu6050.md)
+1. [Índice da documentação](DOCS/INDEX.md) — mapa de navegação e visão do fluxo completo.
+2. [Teoria de vibração](DOCS/arquitetura/teoria_vibração.md) — fundamentos físicos, EDOs, amostragem, incerteza e interpretação responsável de medições.
+3. [Arquitetura do sistema](DOCS/arquitetura/ARQUITETURA.md) — como uma amostra percorre firmware, serial, Python, buffer, interface e CSV.
+
+### Firmware e MPU6050
+
+- [Firmware `mpu-6050.ino`](DOCS/referencias/arduino_mpu6050.md) — explicação em ordem do código, do I2C ao protocolo serial.
+- [Mapa de registradores usado](DOCS/referencias/mpu6050_register_map.md) — somente os registradores e bits efetivamente usados pelo firmware, com páginas do PDF.
+- [Especificação técnica usada](DOCS/referencias/mpu6050_product_specification.md) — escalas, sensibilidades, endereço I2C e sequência de leitura relevantes ao `.ino`.
+
+### Aquisição, interface e análise
+
+- [Leitor serial](DOCS/sensor/serial_reader.md), [coletor](DOCS/sensor/coletor.md) e [buffer](DOCS/sensor/buffers.md) — caminho da amostra dentro do Python.
+- [Janela em tempo real](DOCS/realtime/janela.md) — gráficos, controles e estatísticas da interface.
+- [Validação do CSV](DOCS/analise/testar_dados.md) e [plotagem do CSV](DOCS/analise/plotar_csv.md) — confirme a qualidade da captura antes de interpretar sinais.
+- [Estatísticas](DOCS/analise/statistics.md) e [calibração](DOCS/analise/calibrar_vibracao.md) — medidas descritivas e ajuste por referência RMS.
+- [Guia de calibração de bancada](calibração/guia_calibracao_mpu6050.md) — procedimento prático complementar.
 
 ## Próximos passos possíveis
 
@@ -495,3 +506,4 @@ A pasta [DOCS](DOCS) contém páginas mais específicas para cada componente. Os
 - seleção da porta serial diretamente na janela;
 - definir explicitamente taxa de amostragem e filtro DLPF conforme a faixa de vibração de interesse;
 - testes automatizados para parser serial, buffer e estatísticas.
+#PROJETO_SENSOR_VIBRAÇÃO

@@ -479,3 +479,4 @@ O comportamento exato desse cálculo, seus argumentos e o nome do JSON estão do
 - [Firmware atual do projeto](../arduino/mpu-6050/mpu-6050.ino)
 - [Coletor, local recomendado para correção futura](../sensor/coletor.py)
 - [Plotador de CSV para inspeção visual](../grafico/plotar_csv.py)
+#PROJETO_SENSOR_VIBRAÇÃO

@@ -127,3 +127,4 @@ Os nós de arquivo apontarão para notas Markdown existentes. As arestas terão 
 - A documentação diferencia claramente aquisição em tempo real, persistência, validação, visualização e calibração.
 - A síntese da InvenSense contém somente assuntos usados ou relevantes ao projeto e está fundamentada nos PDFs fornecidos.
 - Nenhuma mudança funcional foi introduzida.
+#PROJETO_SENSOR_VIBRAÇÃO

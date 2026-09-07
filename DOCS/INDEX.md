@@ -1,31 +1,76 @@
 # Índice da documentação — PROJETO_SENSOR_VIBRACAO
 
-**Atualizado:** 05/08/2026
+> [!abstract] Como navegar
+> Este índice é o mapa de entrada para o caminho completo de uma amostra: do
+> MPU6050 ao CSV, à interface em tempo real e à análise posterior.
+
+## Organização da pasta `DOCS/`
+
+```text
+DOCS/
+├── sensor/        # aquisição serial, buffer, fila e CSV
+├── realtime/      # aplicação Qt, janela e utilitário de diagnóstico
+├── canvases/      # mapas visuais navegáveis do Obsidian
+├── arquitetura/   # contratos, fluxo, tempo/frequência e encerramento
+├── analise/       # estatísticas, validação, Plotly e calibração
+├── referencias/   # hardware MPU6050 e dependências
+├── guias/         # roteiro de modificação do sistema
+├── utilitarios/   # apoio à transferência para o Obsidian
+├── superpowers/   # registros históricos de planejamento
+└── INDEX.md        # ponto de entrada desta documentação
+```
 
 ## Comece por aqui
 
-1. [[ARQUITETURA]] — visão do caminho completo de uma amostra.
-2. [[arduino_mpu6050]] — conexão, registradores e escalas do MPU6050.
-3. [[janela]] — uso da interface em tempo real e limites de desempenho.
-4. [[plotar_csv]] — análise do CSV inteiro no navegador.
-5. [[calibrar_vibracao]] — primeiro ensaio com vibração RMS conhecida.
+1. [[teoria_vibração]] — intuição física, EDOs, amostragem e os limites de interpretar uma medição.
+2. [[ARQUITETURA]] — visão geral comprovada do sistema.
+3. [[arduino_mpu6050]] — firmware `mpu-6050.ino`: I2C, registradores, leitura e protocolo serial.
+4. [[mpu6050_register_map]] — páginas do mapa de registradores usadas pelo firmware.
+5. [[mpu6050_product_specification]] — escalas, sensibilidades e I2C usados pelo firmware.
+6. [[serial_reader]] — conversão da linha serial em uma amostra Python.
+7. [[coletor]] — ponto em que a amostra vira buffer, métricas e item de fila.
+8. [[janela]] — interface principal que consome o buffer em tempo real.
 
-## Scripts e relação entre eles
+## Mapa do fluxo de dados
 
-| Documento | Script | Uso principal |
+> [!tip] Visão navegável no Obsidian
+> Abra [[canvases/fluxo-aquisicao|Fluxo de aquisição]] para acompanhar uma
+> amostra de ponta a ponta, [[canvases/concorrencia-encerramento|Concorrência e encerramento]] para entender threads e parada segura, ou [[canvases/interface-tempo-real|Interface em tempo real]] para observar a atualização da interface.
+
+```mermaid
+flowchart TD
+    A[MPU6050] --> B[Arduino / linha serial de 8 campos]
+    B --> C[serial_reader.py]
+    C --> D[coletor.py]
+    D --> E[buffers.py]
+    E --> F[janela.py]
+    D --> G[Fila de gravação]
+    G --> H[gravador_worker.py]
+    H --> I[gravador.py]
+    I --> J[CSV em dados/]
+    J --> K[plotar_csv.py]
+```
+
+O fluxo acima descreve dependências comprovadas pelo código. [[main]] cria a
+interface completa, enquanto [[grafico]] oferece uma janela alternativa de
+diagnóstico para o eixo `ax`.
+
+## Scripts documentados
+
+| Nota | Script | Uso principal |
 |---|---|---|
-| [[arduino_mpu6050]] | `arduino/mpu-6050/mpu-6050.ino` | Lê o sensor e envia a linha serial. |
-| [[serial_reader]] | `sensor/serial_reader.py` | Lê e valida a linha serial. |
-| [[coletor]] | `sensor/coletor.py` | Calcula Hz, detecta saltos e encaminha a amostra. |
-| [[buffers]] | `sensor/buffers.py` | Mantém as últimas 10.000 amostras. |
-| [[gravador]] / [[gravador_worker]] | `sensor/gravador*.py` | Salva CSV sem bloquear a serial. |
-| [[manager]] | `sensor/manager.py` | Inicia e para as duas threads. |
-| [[testar_dados]] | `sensor/teste_manager.py` | Testa a coleta sem abrir GUI. |
-| [[main]] / [[janela]] | `realtime/main.py`, `realtime/janela.py` | Interface principal. |
-| [[grafico]] | `realtime/gráfico.py` | Debug visual rápido de `ax`. |
-| [[plotar_csv]] | `grafico/plotar_csv.py` | Plotly com o CSV completo. |
-| [[statistics]] | `utils/statistics.py` | Métricas usadas na janela. |
-| [[calibrar_vibracao]] | `calibração/calibrar_vibracao.py` | Gera offset e ganho a partir de referência RMS. |
+| [[sensor/__init__]] | `sensor/__init__.py` | Declara o pacote sem efeitos de inicialização. |
+| [[serial_reader]] | `sensor/serial_reader.py` | Lê, valida e converte a linha serial. |
+| [[coletor]] | `sensor/coletor.py` | Calcula Hz, detecta lacunas e encaminha a amostra. |
+| [[buffers]] | `sensor/buffers.py` | Mantém a janela circular de amostras na RAM. |
+| [[gravador]] | `sensor/gravador.py` | Escreve CSV em lotes. |
+| [[gravador_worker]] | `sensor/gravador_worker.py` | Consome a fila de persistência em uma thread. |
+| [[manager]] | `sensor/manager.py` | Coordena fila, coletor e gravador. |
+| [[teste_manager]] | `sensor/teste_manager.py` | Exercita o pipeline vivo no terminal. |
+| [[realtime/__init__]] | `realtime/__init__.py` | Declara o pacote sem iniciar a GUI. |
+| [[main]] | `realtime/main.py` | Ponto de entrada da interface completa. |
+| [[janela]] | `realtime/janela.py` | Mostra seis séries, controles e estatísticas. |
+| [[grafico]] | `realtime/gráfico.py` | Diagnóstico visual mínimo de `ax`. |
 
 ## Comandos rápidos
 
@@ -46,8 +91,16 @@ python grafico\plotar_csv.py
 python calibração\calibrar_vibracao.py 0.50
 ```
 
-## Correções registradas
+## Referências complementares
 
-- [[correcao-pulos-amostras-serial]]
-- [[correcao-buffer-congelando-wrap-around]]
-- [[correcao-controles-parada-e-i2c]]
+- [[teoria_vibração]] — base física e matemática antes de entrar nos detalhes do código.
+- [[arduino_mpu6050]] — explicação em ordem do firmware que produz o sinal.
+- [[mpu6050_register_map]] — referência dirigida aos endereços e bits efetivamente usados.
+- [[mpu6050_product_specification]] — referência dirigida às faixas, sensibilidades e I2C efetivamente usados.
+- [[protocolo-serial]] — contrato da linha que chega do Arduino.
+- [[esquema-csv]] — contrato do arquivo persistido.
+- [[threads-e-encerramento]] — sequência de parada cooperativa e `join()`.
+- [[tempo-frequencia-e-perdas]] — interpretação de Hz e das métricas de perda.
+- [[statistics]] — medidas descritivas exibidas na interface.
+- [[guia-de-modificacao]] — impactos de mudanças no protocolo ou nas etapas.
+#PROJETO_SENSOR_VIBRAÇÃO

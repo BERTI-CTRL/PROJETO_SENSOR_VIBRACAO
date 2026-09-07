@@ -54,3 +54,4 @@ Os testes automatizados cobrirão:
 - colisões retângulo-círculo entre nave e meteoro.
 
 A verificação manual confirmará que o jogo abre sem sensor, aceita setas, mostra erro de porta sem travar, calibra com dados simulados e responde ao MPU6050 conectado na montagem atual.
+#PROJETO_SENSOR_VIBRAÇÃO

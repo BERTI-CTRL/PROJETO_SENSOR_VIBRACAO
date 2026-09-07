@@ -33,7 +33,7 @@ class GravadorWorker(Thread):
             gravador = GravadorCSV(tamanho_buffer=self.tamanho_buffer)
 
             while True:
-                # Aguarda sem polling a próxima linha ou a sentinela de encerramento.
+                # Aguarda sem polling a próxima linha ou a sentinela de encerramento.()
                 linha = self.fila.get()
                 try:
                     # None e o sentinela enviado pelo SensorManager ao parar.

@@ -14,6 +14,7 @@ def ler_dados(porta, baudrate=230400, timeout=0.1, deve_continuar=None):
 
     # Encapsula a regra de parada, aceitando aquisição contínua quando não há callback.
     def continuar():
+
         # Consulta o callback apenas quando ele foi informado pelo chamador.
         return deve_continuar is None or deve_continuar()
 
@@ -21,13 +22,16 @@ def ler_dados(porta, baudrate=230400, timeout=0.1, deve_continuar=None):
     with serial.Serial(porta, baudrate, timeout=timeout) as arduino:
         #print("Abrindo serial...")
 
-        # Abertura da serial pode reiniciar o Arduino. Espera sem impedir
+        # Abertura da serial pode reiniciar o Arduino. Espera sem impediw 
         # que o botão Parar encerre a thread durante esse intervalo.
-        # Calcula o instante-limite com um relógio que não retrocede se o relógio civil mudar.
+        # Calcula o instante-limite com um trelógio que não retrocede se o relógio civil mudar.
+
         limite_espera = time.monotonic() + 2
-        # Aguarda o possível reset do Arduino, mas reavalia a solicitação de parada a cada ciclo.
+
+        # Aguarda o possível reset do Arduino, mas reavalia a solicitação de parada a cada ciclo. O maior erro cometido 
+        # foi a perda de amostra. que ocorria tanto po rperda de perfomance quanto por reset do aruduino(um arduino antigo tava ruime tive que trocar)
         while time.monotonic() < limite_espera:
-            # Encerra antes de iniciar leituras se a interface solicitou parada durante a espera.
+            # Encerra antes de niciar leituras se a interface solicitou parada durante a espera.
             if not continuar():
                 return
             # Limita a frequência de consulta do callback durante os dois segundos de estabilização.
@@ -70,7 +74,8 @@ def ler_dados(porta, baudrate=230400, timeout=0.1, deve_continuar=None):
                 linhas_invalidas += 1 
                 
                 continue
-    
+
+            
             
             # Captura valores não numéricos sem interromper a aquisição serial.
             try:
@@ -78,7 +83,8 @@ def ler_dados(porta, baudrate=230400, timeout=0.1, deve_continuar=None):
                 contador,tempo_arduino_us,ax,ay,az,gx,gy,gz = map(float,campos)
                 # Emite um marco de progresso a cada mil amostras recebidas.
                 if contador % 1000 ==0:
-                    print(f"[Serial] : {contador}")
+                    print(f"[Serial] : {contador}") # em certo momento estva perdendo amostra, isso aqui é pra ver a consonância das amostras de mutiplos scripts
+
                     
                 # Mantém desativado o antigo bloco de diagnóstico detalhado, sem executá-lo.
                 """print(
@@ -111,7 +117,7 @@ def ler_dados(porta, baudrate=230400, timeout=0.1, deve_continuar=None):
                 # Conta a linha inválida antes de prosseguir para a próxima leitura.
                 linhas_invalidas += 1
                 # Expõe o conteúdo rejeitado para diagnóstico sem encerrar o gerador.
-                print(f"[Serial] Linha inválida: {repr(dados_linha)}")
+                print(f"[Serial] Linha inválida: {repr(dados_linha)}") #l inha importantíssima, "repr" consegue printar linhas vazias que o arduino eventualmente mande
                 continue
             
 

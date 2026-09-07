@@ -108,10 +108,10 @@ Se não houver CSV, o `FileNotFoundError` vira o status “nenhum CSV encontrado
 
 ### `limpar_grafico()` e `autoescala()`
 
-`limpar_grafico()` executa `clear()` nas seis curvas, sem chamar `buffer.limpar()`, zerar contadores ou parar coleta.
+`limpar_grafico()` chama `buffer.limpar()` e executa `clear()` nas seis curvas. A limpeza descarta o histórico em memória exibido pela interface, mas não para a coleta, não apaga o CSV e não reinicia os contadores da sessão.
 
-> [!warning] Limpeza apenas visual
-> No próximo tick de aproximadamente 33 ms, o buffer ainda preenchido volta a alimentar as curvas marcadas.
+> [!tip] Nova janela visual durante a coleta
+> Se a aquisição estiver ativa, o buffer volta a receber dados logo após o clique; no próximo tick, aparecem somente as amostras recebidas desde essa limpeza. Com a aquisição parada, as curvas e estatísticas permanecem vazias.
 
 `autoescala()` faz `enableAutoRange(x=False, y=True)` nos dois widgets. X continua fixo; não há método para desligar essa autoescala e restaurar os limites Y iniciais.
 
@@ -439,9 +439,10 @@ O segundo snapshot e propositalmente unico para esta rodada de estatisticas.
 dataclass de [[statistics]] e preenche tres labels por eixo com unidade. Nao ha
 retorno: a saida sao os textos atualizados.
 
-### `limpar_grafico()` (linhas 521–532)
+### `limpar_grafico()`
 
 ```python
+self.manager.buffer.limpar()
 self.curva_ax.clear()
 self.curva_ay.clear()
 self.curva_az.clear()
@@ -450,9 +451,11 @@ self.curva_gy.clear()
 self.curva_gz.clear()
 ```
 
-As seis chamadas removem os pontos atualmente desenhados. Sao consecutivas e
-simples, por isso aparecem agrupadas. Nenhuma toca [[buffers]], fila, serial ou
-contadores; `atualizar_grafico` pode preencher cada curva de novo.
+`buffer.limpar()` faz um reset lógico thread-safe: a próxima escrita volta ao
+início e não há amostras visíveis até uma nova chegada. As seis chamadas
+removem os pontos da tela imediatamente. A função não toca na fila, serial,
+CSV ou nos contadores da sessão; se a coleta continuar, `atualizar_grafico`
+preenche as curvas com o novo trecho de dados.
 
 ### `closeEvent()` (linhas 534–549)
 

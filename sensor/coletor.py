@@ -7,7 +7,7 @@ from queue import Full
 
 # Importa o gerador que transforma linhas seriais em amostras numéricas.
 from sensor.serial_reader import ler_dados
-
+ 
 
 class Coletor:
     def __init__(self, porta="COM4", baudrate=230400, fila_gravacao=None):
@@ -45,21 +45,26 @@ class Coletor:
         # Reserva o primeiro micros() recebido para calcular a frequência média.
         self.tempo_arduino_inicial_us = 0
         # Reserva o micros() anterior para calcular a frequência instantânea.
-        self.tempo_arduino_anterior_us = 0
+        self.tempo_arduino_anterior_us = 0  
 
         # Mantém no máximo as 100 últimas frequências instantâneas para a média móvel.
-        self.historico_hzs_inst = deque(maxlen=100) # fila usada para calcular o valor hz instantaneo suavizado - > GUARDA OS ÚLTIMOS 100 HZ 
+        self.historico_hzs_inst = deque(maxlen=100) # fila usa da para calcular o valor hz instantaneo suavizado - > GUARDA OS ÚLTIMOS 100 HZ 
 
     def configurar_fila_gravacao(self, fila_gravacao):
         """Define a fila usada para entregar dados ao gravador assíncrono."""
         # Substitui a fila de destino, permitindo ao manager configurar o gravador.
         self.fila_gravacao = fila_gravacao
 
+
+
     def _registrar_salto(self, contador):
         # Reconhece uma lacuna somente se o contador avançou mais de uma unidade.
         if self.contador_anterior is not None and contador > self.contador_anterior + 1:
+
+
             # Calcula quantas amostras deveriam existir entre os dois contadores.
             perdidas = int(contador - self.contador_anterior - 1)
+            
             # Registra um evento de salto, independentemente de seu tamanho.
             self.saltos_contador += 1
             # Acumula a quantidade estimada de amostras não recebidas pela serial.
@@ -82,7 +87,7 @@ class Coletor:
         # Tenta entregar a amostra sem bloquear a thread de aquisição.
         try:
             # A thread serial nao pode esperar pelo disco. Se a fila lotar,
-            # registramos explicitamente a perda em vez de bloquear a serial.
+            # registramos explicitamente a perda em vez de bloquear a serial. Como sempre, a perfomance manda na aquisição
             # Insere imediatamente a linha ou lança Full se o gravador não acompanha a produção.
             self.fila_gravacao.put_nowait(linha)
         # Trata somente a saturação esperada da fila de gravação.
@@ -162,9 +167,9 @@ class Coletor:
                 self.tempo_arduino_anterior_us = tempo_arduino_us
             else:
                 # Converte o tempo decorrido desde a primeira amostra de micros para segundos.
-                dt_total = (tempo_arduino_us - self.tempo_arduino_inicial_us) / 1_000_000
+                dt_total = (tempo_arduino_us - self.tempo_arduino_inicial_us) / 1_000_000 #segundos ne
 
-                # Evita divisão por zero ou por intervalo de tempo não crescente.
+                # Evita divisão por zero ou por intervalo de tempo não crescente,quebraria o prog.
                 if dt_total > 0:
                     # Calcula a taxa média pelos intervalos entre as amostras da sessão.
                     self.hz_medio = (self.numero_amostras - 1) / dt_total
@@ -183,7 +188,7 @@ class Coletor:
                         sum(self.historico_hzs_inst) / len(self.historico_hzs_inst)
                     )
 
-                # Move a referência temporal para a amostra que acaba de ser processada.
+                # Move a referência temporal para a amostra que acaba de ser processada. olhe linha 178'
                 self.tempo_arduino_anterior_us = tempo_arduino_us
 
             # Copia a amostra completa para o buffer circular consumido pela interface.

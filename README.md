@@ -201,7 +201,7 @@ Mostrar somente 150 pontos **não apaga** as amostras do buffer nem do CSV; é a
 
 - **Iniciar:** chama `manager.iniciar()`.
 - **Parar:** chama `manager.parar()`, aguarda o CSV terminar de ser gravado e abre no Plotly o CSV recém-gerado, quando a sessão recebeu ao menos uma amostra.
-- **Limpar:** remove os desenhos atuais das seis curvas, mas não limpa o buffer nem interrompe a aquisição.
+- **Limpar:** esvazia o histórico em memória e apaga as seis curvas, sem interromper a aquisição nem apagar o CSV. Se a coleta estiver ativa, a tela volta a mostrar apenas as amostras recebidas após o clique.
 - **Checkboxes:** mostram ou escondem cada eixo sem parar sua coleta.
 - **Auto Escala:** ativa o ajuste contínuo do eixo Y dos dois gráficos. O eixo X continua fixo nas últimas 150 amostras.
 

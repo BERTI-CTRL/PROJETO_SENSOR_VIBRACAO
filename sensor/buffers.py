@@ -24,6 +24,8 @@ class BufferSensores:
         # Guarda o limite de amostras que a janela em memória pode reter.
         self.tamanho_maximo = tamanho
         # Cria a exclusão mútua para todas as leituras e escritas no estado circular.
+
+        
         self._lock = Lock()
         # Array 2D: (tamanho_maximo, 9 colunas)
         # Reserva nove colunas float64 para manter todas as amostras em um único bloco NumPy.

@@ -518,12 +518,15 @@ class Janela(QMainWindow):
             self.stats_labels[(eixo, "rms")].setText(f"{fmt(est.rms)} {unidade}")
 
 
-    # Limpa apenas a representacao grafica; [[buffers]] e aquisicao permanecem.
+    # Reinicia o historico visual sem interromper a sessao nem apagar o CSV.
     def limpar_grafico(self):
-        '''Responsabilidade: Limpar o gráfico,somente.'''
+        '''Limpa a janela de amostras exibida e as seis curvas atuais.'''
 
-        # Cada curva e apagada individualmente e voltara no proximo tick caso
-        # seu checkbox esteja marcado e o buffer ainda contenha dados.
+        # O reset logico e protegido pelo Lock do buffer. Se a aquisicao estiver
+        # ativa, somente as amostras recebidas depois deste clique reaparecem.
+        self.manager.buffer.limpar()
+
+        # Remove os pontos ja desenhados imediatamente, sem aguardar o timer.
         self.curva_ax.clear()
         self.curva_ay.clear()
         self.curva_az.clear()

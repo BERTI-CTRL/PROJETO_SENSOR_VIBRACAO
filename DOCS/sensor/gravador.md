@@ -1,55 +1,36 @@
-# gravador.py
+# gravador.py — explicação completa, em ordem de linhas
 
-## Resumo
+O arquivo [sensor/gravador.py](C:\Users\berti\Documents\FACULDADE\projeto_sensor_vibracao\PROJETO_SENSOR_VIBRACAO\sensor\gravador.py) é o responsável por escrever os dados da sessão em um arquivo CSV. Ele recebe amostras já prontas, junta várias em memória e grava um lote por vez.
 
-`GravadorCSV` é a camada de escrita do histórico da sessão. Recebe listas de nove valores de [[coletor]], acumula lotes em memória e produz CSV. O fluxo normal o usa exclusivamente por [[gravador_worker]].
+Ele não lê a serial e não cria threads. GravadorWorker é quem o usa dentro de uma thread exclusiva de gravação.
 
-## Dependências, entrada e saída
-
-Importa `csv`, `Path` e `datetime`. `salvar(linha)` recebe a ordem de nove campos da aquisição e escreve arquivo em `dados/`, no esquema descrito por [[esquema-csv]].
-
-## `__init__()`: destino e cabeçalho
-
-Sua interface declarada é:
-
-```python
-GravadorCSV(arquivo="dados/dados_aceleracao_giro.csv", tamanho_buffer=10000)
+```text
+Coletor → Queue → GravadorWorker → GravadorCSV → dados/*.csv
 ```
 
-Mas o caminho efetivo é sempre montado pelo relógio:
+| Termo | Significado simples |
+|---|---|
+| CSV | Arquivo de texto em tabela, com valores separados por vírgula. |
+| cabeçalho | Primeira linha que informa o nome de cada coluna. |
+| lote/batch | Grupo de várias amostras escritas em uma operação. |
+| buffer | Lista temporária que junta o lote antes de salvar. |
+| append | Modo de abertura que acrescenta conteúdo ao fim do arquivo. |
+| flush final | Escrita das últimas linhas que ainda não formaram um lote completo. |
+| Path | Objeto Python que representa um caminho de arquivo. |
+
+Cada linha recebida deve ter nove valores nesta ordem:
 
 ```python
-data_hora = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-self.arquivo = Path(f'dados/dados_aceleracao_giro-{data_hora}.csv')
+[
+    tempo_arduino_us,
+    timestamp,
+    contador,
+    ax, ay, az,
+    gx, gy, gz,
+]
 ```
 
-Abre com modo `"a"`, `newline=""` e UTF-8. Se o arquivo não existia, escreve cabeçalho com `tempo_arduino_us`, `tempo_relogio_pc`, `contador`, `ax`, `ay`, `az`, `gx`, `gy`, `gz`.
-
-> [!warning]
-> O parâmetro `arquivo` é aceito mas ignorado. O diretório `dados/` também não é criado por este módulo e precisa existir no diretório de trabalho.
-
-> [!warning]
-> O sufixo temporal tem precisão de segundos; sessões iniciadas no mesmo segundo podem fazer append ao mesmo caminho.
-
-## `salvar(linha)` e `fechar()`
-
-`salvar()` adiciona à lista e descarrega ao atingir o tamanho de lote:
-
-```python
-if len(self.buffer) >= self.tamanho_buffer:
-    self.writer.writerows(self.buffer)
-    self.buffer.clear()
-```
-
-Isto reduz operações de disco. O default da classe é 10.000, enquanto [[gravador_worker]] normalmente passa 1.000. `fechar()` escreve o lote parcial restante, limpa a lista e fecha o descritor; é chamado no `finally` do worker após a sentinela enviada por [[manager]].
-
-## Decisão arquitetural
-
-Não possui lock porque o desenho dá ao worker a propriedade exclusiva do arquivo. Desacoplar escrita serial evita que I/O lento interfira na taxa de [[coletor]].
-
-## Código explicado, na ordem do arquivo
-
-### Imports, classe e construtor
+## Linhas 3 a 8: imports
 
 ```python
 import csv
@@ -57,49 +38,201 @@ from pathlib import Path
 from datetime import datetime
 ```
 
-`csv` serializa linhas, `Path` representa o destino e `datetime` gera o sufixo temporal. `GravadorCSV.__init__()` recebe um parâmetro histórico `arquivo` e tamanho de buffer, não retorna valor e cria `self.buffer = []`, `self.tamanho_buffer` e o destino.
+csv é a biblioteca padrão que escreve valores com vírgulas e aspas quando necessário. Path representa o caminho do arquivo de uma forma que funciona em diferentes sistemas. datetime fornece data e hora para dar um nome diferente a cada sessão.
+
+## Linhas 11 a 19: classe e assinatura do construtor
+
+```python
+class GravadorCSV:
+    def __init__(
+        self,
+        arquivo="dados/dados_aceleracao_giro.csv",
+        tamanho_buffer=10000
+    ):
+```
+
+GravadorCSV é o molde do objeto que guarda estado de um CSV aberto.
+
+arquivo aparece como parâmetro, mas a implementação atual não o usa como destino final. O destino é montado com data e hora algumas linhas depois.
+
+tamanho_buffer define quantas linhas ficam na lista antes de writerows gravar um lote. O padrão da classe é 10.000; GravadorWorker normalmente passa 1.000 ao criar o objeto.
+
+## Linhas 20 a 27: buffer e nome do arquivo
+
+```python
+self.buffer = []
+self.tamanho_buffer = tamanho_buffer
+```
+
+self.buffer cria uma lista vazia. Ela não é o BufferSensores usado pela interface; é uma lista privada usada exclusivamente para preparar gravações em lote.
+
+self.tamanho_buffer guarda o limite recebido, para ser consultado em salvar.
+
+```python
+data_hora = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+self.arquivo = Path(
+    f"dados/dados_aceleracao_giro-{data_hora}.csv"
+)
+```
+
+datetime.now obtém data e hora atuais. strftime transforma-as em texto. Por exemplo:
+
+```text
+2026-09-09_16-48-06
+```
+
+A f-string insere esse texto no nome. Path cria o caminho:
+
+```text
+dados/dados_aceleracao_giro-2026-09-09_16-48-06.csv
+```
+
+O parâmetro arquivo continua ignorado. A pasta dados também precisa existir antes da criação; este arquivo não chama mkdir para criá-la.
+
+## Linhas 29 a 41: abrir o CSV
 
 ```python
 arquivo_existe = self.arquivo.exists()
-self.f = open(self.arquivo, mode="a", newline="", encoding="utf-8")
-self.writer = csv.writer(self.f)
-if not arquivo_existe:
-    self.writer.writerow([...])
 ```
 
-`exists()` define se cabeçalho será escrito. O modo append preserva conteúdo e `newline=""` evita linhas extras no Windows. A lista de cabeçalho é a saída contratual para ferramentas como [[plotar_csv]].
-
-### `salvar(linha)`
-
-Recebe uma linha de nove valores e não retorna valor. Primeiro a retém; somente no limiar escreve e libera:
+exists devolve True se já há um arquivo naquele caminho e False caso contrário. Essa informação decide se o cabeçalho precisa ser escrito.
 
 ```python
-self.buffer.append(linha)
+self.f = open(
+    self.arquivo,
+    mode="a",
+    newline="",
+    encoding="utf-8"
+)
+```
+
+open abre o arquivo e o resultado é guardado em self.f.
+
+- mode="a" significa append: acrescentar no fim, sem apagar conteúdo existente.
+- newline="" é a configuração recomendada para csv no Windows, evitando linhas vazias extras.
+- encoding="utf-8" define a codificação do texto.
+
+Se duas sessões gerarem exatamente o mesmo nome no mesmo segundo, append pode juntar dados no mesmo arquivo. Normalmente os nomes são diferentes porque incluem data e hora.
+
+```python
+self.writer = csv.writer(self.f)
+```
+
+csv.writer cria o objeto capaz de transformar listas Python em linhas CSV dentro do arquivo aberto.
+
+## Linhas 43 a 56: cabeçalho
+
+```python
+if not arquivo_existe:
+    self.writer.writerow([
+        "tempo_arduino_us",
+        "tempo_relogio_pc",
+        "contador",
+        "ax",
+        "ay",
+        "az",
+        "gx",
+        "gy",
+        "gz"
+    ])
+```
+
+not inverte a condição. Se arquivo_existe é False, not arquivo_existe é True e o cabeçalho é escrito.
+
+writerow escreve uma linha. A lista declara as nove colunas:
+
+| Coluna | Origem |
+|---|---|
+| tempo_arduino_us | micros do Arduino; usado para análise temporal. |
+| tempo_relogio_pc | perf_counter registrado pelo leitor serial. |
+| contador | número sequencial do firmware. |
+| ax, ay, az | aceleração nos três eixos. |
+| gx, gy, gz | velocidade angular nos três eixos. |
+
+O cabeçalho deve manter a mesma ordem da lista criada em coletor.py. Ferramentas como plotar_csv identificam colunas por esses nomes.
+
+## Linhas 58 a 68: salvar uma amostra
+
+```python
+def salvar(self, linha):
+    self.buffer.append(linha)
+```
+
+salvar recebe uma lista de nove valores e adiciona essa lista ao buffer de escrita. append não grava disco imediatamente.
+
+```python
 if len(self.buffer) >= self.tamanho_buffer:
     self.writer.writerows(self.buffer)
     self.buffer.clear()
 ```
 
-`writerows` aceita o lote inteiro, que chega da fila controlada por [[gravador_worker]].
+len conta quantas linhas estão esperando. Quando há pelo menos tamanho_buffer:
 
-### `fechar()`
+1. writerows escreve todas as listas do buffer em sequência;
+2. clear remove as referências da lista já salva.
+
+Exemplo com tamanho_buffer igual a 3:
+
+```text
+salvar(A) → buffer: [A]
+salvar(B) → buffer: [A, B]
+salvar(C) → writerows([A, B, C]) → buffer: []
+```
+
+Gravar em lote reduz chamadas ao sistema de arquivos. Isso é mais eficiente que escrever a cada amostra e ajuda a não atrapalhar a aquisição serial.
+
+## Linhas 70 a 80: fechar corretamente
+
+```python
+def fechar(self):
+    if self.buffer:
+        self.writer.writerows(self.buffer)
+        self.buffer.clear()
+    self.f.close()
+```
+
+fechar precisa ser chamado ao fim da sessão. A condição:
 
 ```python
 if self.buffer:
-    self.writer.writerows(self.buffer)
-    self.buffer.clear()
-self.f.close()
 ```
 
-Não recebe nem retorna valores. O `if` trata o lote que não alcançou o limiar; o fechamento ocorre mesmo se não havia linha pendente. No fluxo normal o `finally` do worker chama esse método.
+é verdadeira quando a lista não está vazia. Ela cuida do último lote parcial.
 
-## Insights para outros projetos
+Exemplo: se o lote precisa de 1.000 linhas e a sessão termina após 1.234:
 
-- Escrita em lote reduz overhead, mas torna flush no encerramento obrigatório.
-- Cabeçalho condicionado à existência combina com append.
-- Ao tornar um destino configurável, documente caminho, diretório e colisões de nome.
+```text
+1.000 linhas → gravadas por salvar()
+234 linhas   → ainda estão no buffer
+fechar()     → grava as 234 restantes
+```
+
+Depois, self.f.close fecha o descritor do arquivo. Isso libera o arquivo e garante que a escrita do Python seja finalizada.
+
+No fluxo normal, GravadorWorker chama fechar dentro de seu bloco finally. Portanto a chamada acontece tanto quando recebe a sentinela None quanto se ocorrer uma falha no worker depois de o arquivo ter sido aberto.
+
+## Como este arquivo se relaciona com os outros
+
+```python
+# gravador_worker.py, ideia central
+gravador = GravadorCSV(tamanho_buffer=1000)
+gravador.salvar(linha)
+# ...
+gravador.fechar()
+```
+
+GravadorWorker é o único consumidor normal de GravadorCSV. Ele recebe as listas do Coletor pela Queue e chama salvar para cada uma.
+
+```text
+manager.py          cria Queue e inicia worker
+coletor.py          tenta enfileirar uma cópia de cada amostra
+gravador_worker.py  consome Queue e usa GravadorCSV
+gravador.py          escreve o arquivo e seu cabeçalho
+plotar_csv.py        lê o arquivo pronto para análise
+```
+
+GravadorCSV não usa Lock porque somente a thread do worker deve acessar a instância e seu arquivo. A Queue protege a troca de dados entre a thread do coletor e a thread de gravação.
 
 ## Resumo mental
 
-É uma caixa de lote: junta amostras, grava de uma vez e, ao fechar, descarrega inclusive o lote incompleto.
-#PROJETO_SENSOR_VIBRAÇÃO
+GravadorCSV é uma caixa de lote para o CSV. Ele cria um nome com data e hora, abre o arquivo, escreve cabeçalho quando necessário, junta amostras temporariamente, grava quando o lote enche e grava o resto antes de fechar.

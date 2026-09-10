@@ -17,4 +17,5 @@ dependencies = [
     "streamlit>=1.57.0",
     "streamlit-autorefresh>=1.0.1",
     "streamlit-echarts>=0.7.0",
+    "manim>=0.21.0",
 ]

@@ -1,88 +1,100 @@
-# gravador_worker.py
+# gravador_worker.py — explicação completa, em ordem de linhas
 
-## Resumo
+O arquivo [sensor/gravador_worker.py](C:\Users\berti\Documents\FACULDADE\projeto_sensor_vibracao\PROJETO_SENSOR_VIBRACAO\sensor\gravador_worker.py) cria a thread dedicada ao disco. Ela espera amostras na fila, passa cada uma para GravadorCSV e encerra somente depois de receber a sentinela None.
 
-`GravadorWorker` é a thread que consome a fila de persistência e delega arquivo a [[gravador]]. Separá-la de [[coletor]] evita que uma escrita lenta bloqueie a porta serial.
+Separar essa thread do Coletor é importante: o disco pode ficar lento, mas a leitura serial deve continuar o mais livre possível.
 
-## Dependências, entrada e saída
-
-Herda de `threading.Thread` e importa `GravadorCSV`. Entrada: fila com listas de nove campos ou `None`. Saída: CSV e atributo público `erro` com exceção capturada.
-
-```python
-GravadorWorker(fila, tamanho_buffer=1000)
+```text
+Coletor produz linha → Queue → GravadorWorker consome → GravadorCSV grava CSV
+                                  ↑
+                                None encerra
 ```
 
-O construtor cria thread `gravador-csv`, `daemon=True`, guarda fila/lote e inicia `erro=None`.
+| Termo | Significado simples |
+|---|---|
+| worker | Thread que executa trabalho especializado em segundo plano. |
+| Queue.get | Espera e retira o próximo item da fila. |
+| FIFO | Primeiro item que entrou é o primeiro que sai. |
+| sentinela | Valor especial usado para sinalizar fim; aqui é None. |
+| task_done | Marca um item retirado da fila como concluído. |
+| try/except/finally | Estrutura para tentar, tratar erro e sempre executar limpeza. |
+| daemon | Thread que não impede sozinha o processo de terminar. |
 
-> [!idea]
-> Daemon impede uma thread esquecida de manter o processo vivo, mas não assegura integridade de arquivo. O `join()` de [[manager]] é que assegura o caminho normal de flush.
-
-## `run()` em ordem
-
-O gravador nasce dentro da thread:
-
-```python
-gravador = GravadorCSV(tamanho_buffer=self.tamanho_buffer)
-```
-
-Depois a thread bloqueia sem polling em `fila.get()`. O bloco central é:
+## Linhas 1 a 15: docstring, import e classe
 
 ```python
-linha = self.fila.get()
-try:
-    if linha is None:
-        break
-    gravador.salvar(linha)
-finally:
-    self.fila.task_done()
-```
+"""Thread dedicada para persistir as amostras no CSV.
 
-`None` é sentinela, não linha CSV. O `finally` externo chama `gravador.fechar()` sempre que o gravador chegou a ser construído, descarregando o lote parcial.
-
-## Erros e relação com o encerramento
-
-Erros de abertura/consumo/gravação ficam em `self.erro` e vão ao console. Se fechar também falha, `self.erro = self.erro or erro` preserva a primeira causa. [[manager]] interrompe [[coletor]], espera sua thread, envia a sentinela e espera este worker; veja [[threads-e-encerramento]].
-
-> [!warning]
-> [[manager]] não consulta `gravador_thread.erro`. Uma falha pode ficar somente no console/atributo; o coletor continuará tentando enfileirar até a fila saturar.
-
-> [!warning]
-> Cada item recebe `task_done()`, mas o manager não chama `Queue.join()`; a espera efetiva é `join()` da thread após a sentinela.
-
-## Código explicado, na ordem do arquivo
-
-### Imports, classe e construtor
-
-```python
+Esta thread nunca acessa a porta serial. Assim, uma escrita lenta no disco
+nao interrompe a leitura feita pelo Coletor.
+"""
 from threading import Thread
 from sensor.gravador import GravadorCSV
+
+class GravadorWorker(Thread):
+    """Consome linhas da fila e as grava em lotes no CSV."""
 ```
 
-`GravadorWorker(Thread)` recebe `fila` e `tamanho_buffer=1000`. O construtor chama a base com nome e daemon:
+A docstring descreve o objetivo do módulo. Thread é a classe-base do Python para trabalho paralelo. GravadorCSV é a classe que abre, escreve e fecha o arquivo.
+
+GravadorWorker(Thread) significa que GravadorWorker herda o comportamento de uma Thread. Por isso ele possui start e join. O código do trabalho fica no método run.
+
+## Linhas 17 a 25: construtor
 
 ```python
-super().__init__(name="gravador-csv", daemon=True)
-self.fila = fila
-self.tamanho_buffer = tamanho_buffer
-self.erro = None
+def __init__(self, fila, tamanho_buffer=1000):
+    super().__init__(name="gravador-csv", daemon=True)
+    self.fila = fila
+    self.tamanho_buffer = tamanho_buffer
+    self.erro = None
 ```
 
-Não retorna valor. Guarda a Queue já criada por [[manager]], o lote que será encaminhado a `GravadorCSV` e espaço para diagnóstico externo.
+fila é a Queue criada pelo manager e compartilhada com o Coletor. tamanho_buffer é a quantidade de linhas que GravadorCSV acumula antes de escrever um lote; aqui o padrão é 1.000.
 
-### `run()`: criação e consumo
+super().__init__ chama o construtor da classe Thread:
+
+```python
+name="gravador-csv"
+```
+
+dá um nome legível à thread em diagnósticos.
+
+```python
+daemon=True
+```
+
+marca a thread como daemon. Mesmo assim o manager chama join no encerramento normal, pois join é o que garante esperar o flush final do CSV.
+
+self.fila guarda a fila recebida. self.tamanho_buffer será passado ao GravadorCSV. self.erro começa como None e poderá guardar uma exceção ocorrida na thread.
+
+## Linhas 27 a 33: começo de run
 
 ```python
 def run(self):
     gravador = None
     try:
-        gravador = GravadorCSV(tamanho_buffer=self.tamanho_buffer)
-        while True:
-            linha = self.fila.get()
+        gravador = GravadorCSV(
+            tamanho_buffer=self.tamanho_buffer
+        )
 ```
 
-`run()` é chamado por `start()` e não pelo chamador diretamente. `gravador = None` permite ao `finally` saber se abriu o arquivo. `get()` bloqueia até haver trabalho, sem sleep/polling.
+run é chamado automaticamente por start:
 
-### Sentinela, persistência e contabilidade
+```python
+worker = GravadorWorker(fila)
+worker.start()  # start cria a thread e executa run dentro dela
+```
+
+gravador começa como None. Isso permite que o finally saiba se o CSV foi aberto com sucesso. Dentro do try, GravadorCSV cria o arquivo e escreve cabeçalho quando necessário.
+
+## Linhas 35 a 47: esperar, salvar e reconhecer None
+
+```python
+while True:
+    linha = self.fila.get()
+```
+
+while True cria um loop sem fim até break. fila.get bloqueia a thread de modo eficiente enquanto a fila está vazia. Não há polling nem sleep: a thread dorme até o Coletor inserir algo.
 
 ```python
 try:
@@ -93,31 +105,81 @@ finally:
     self.fila.task_done()
 ```
 
-Toda linha retirada, inclusive a sentinela `None`, recebe `task_done()`. `break` deixa o `while`; linhas reais são passadas ao gravador. Essa ordem preserva FIFO: como [[manager]] só envia `None` depois de aguardar o produtor, ela fica atrás de todas as linhas já enfileiradas.
+Cada item retirado precisa receber task_done, inclusive None. finally garante isso mesmo se gravador.salvar falhar.
 
-### Exceções e fechamento
+Se linha for None, break sai do while. None não é gravada como CSV: ela significa “não haverá mais linhas”.
+
+Se linha for uma lista real de nove valores, salvar a coloca no buffer de lote do GravadorCSV. Quando o lote enche, GravadorCSV escreve várias linhas de uma vez.
+
+A ordem FIFO garante o flush correto:
+
+```text
+amostras A, B, C entram na fila
+None entra depois
+worker salva A, B, C
+worker lê None e encerra
+finally fecha o lote parcial
+```
+
+O manager só envia None depois de esperar o Coletor terminar. Assim, o worker não encerra antes de a última amostra ser enfileirada.
+
+## Linhas 49 a 53: erro do trabalho principal
 
 ```python
 except Exception as erro:
     self.erro = erro
     print(f"[Gravador] Erro: {erro}")
+```
+
+Exception captura erros que acontecerem ao criar GravadorCSV, chamar get ou salvar uma linha. A exceção fica guardada em self.erro para inspeção externa e também aparece no terminal.
+
+Sem esse bloco, uma exceção numa thread pode ser mais difícil de perceber, pois ela não volta automaticamente para o código que chamou start.
+
+## Linhas 54 a 64: fechamento garantido
+
+```python
 finally:
     if gravador is not None:
         try:
             gravador.fechar()
         except Exception as erro:
             self.erro = self.erro or erro
+            print(f"[Gravador] Erro ao fechar CSV: {erro}")
 ```
 
-O `except` captura falha do bloco principal, preserva-a e a expõe. O `finally` tenta fechar apenas se existe gravador; seu `except` não apaga a falha inicial. `run()` não retorna dado ao chamador; resultado observável é arquivo/`erro`.
+finally sempre roda ao sair do try principal: por None, erro ou fim inesperado.
 
-## Insights para outros projetos
+O if evita chamar fechar se GravadorCSV não chegou a ser criado. Quando existe gravador, fechar grava o último lote incompleto e fecha o arquivo.
 
-- Dê a um único consumidor a propriedade do arquivo.
-- Use sentinela FIFO após encerrar os produtores.
-- Preserve exceções de thread em estado observável.
+self.erro = self.erro or erro preserva o primeiro erro:
+
+```python
+self.erro or erro
+```
+
+se self.erro já contém uma exceção anterior, ela continua sendo usada. Se ainda é None, a falha do fechamento se torna o erro registrado.
+
+## Como manager controla esta thread
+
+```python
+# manager.py
+self.gravador_thread = GravadorWorker(self.fila_gravacao)
+self.gravador_thread.start()
+
+# durante a parada, após esperar o Coletor:
+self.fila_gravacao.put(None)
+self.gravador_thread.join()
+```
+
+start inicia o worker antes do produtor serial. put(None) envia a sentinela depois que o produtor parou. join bloqueia o manager até run terminar, inclusive o método gravador.fechar.
+
+## Diferença entre GravadorWorker e GravadorCSV
+
+| Arquivo | Responsabilidade |
+|---|---|
+| gravador_worker.py | Thread, Queue, sentinela, erro e coordenação de consumo. |
+| gravador.py | Nome do arquivo, cabeçalho, buffer de lote, writerows e close. |
 
 ## Resumo mental
 
-É o funcionário do disco: espera trabalho, grava linhas reais, encerra no bilhete `None` e tenta guardar o diagnóstico de sua própria falha.
-#PROJETO_SENSOR_VIBRAÇÃO
+GravadorWorker é o funcionário da fila. Ele fica esperando trabalho, salva cada amostra no CSV sem acessar a serial, entende None como ordem de encerramento e tenta fechar o arquivo em todos os caminhos possíveis.

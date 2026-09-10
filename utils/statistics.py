@@ -61,6 +61,8 @@ class EstatisticasBasicas:
     curtose_excesso: float  # Quarto momento padronizado menos tres.
 
 
+
+
 def calcular_estatisticas(
     valores: Iterable[float],
     *,
@@ -180,4 +182,4 @@ def _resultado_indefinido(amostras_invalidas: int) -> EstatisticasBasicas:
         coeficiente_variacao_percentual=nan,
         assimetria=nan,
         curtose_excesso=nan,
-    )
+    )# nan serve para não invalidar a excecução

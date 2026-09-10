@@ -13,8 +13,8 @@ float a_x,a_y,a_z,temperatura,Gyrx,Gyry,Gyrz;
 
 // Executa uma vez apos a inicializacao ou reinicializacao da placa.
 void setup() {
-  // Abre a serial a 115200 baud; o receptor precisa usar exatamente a mesma taxa.
-  Serial.begin(115200);
+  // Abre a serial a 230400 baud; o receptor precisa usar exatamente a mesma taxa.
+  Serial.begin(230400);
 
   // Inicializa o controlador I2C da placa com os pinos e a frequencia padrao da implementacao de Wire.
   Wire.begin();

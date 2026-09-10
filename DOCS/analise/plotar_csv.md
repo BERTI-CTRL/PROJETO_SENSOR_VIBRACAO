@@ -1,182 +1,294 @@
-# plotar_csv.py
+# plotar_csv.py — explicação completa, em ordem de linhas
 
-> [!abstract] Em uma frase
-> Lê uma captura CSV e abre no navegador dois gráficos Plotly interativos: aceleração e giroscópio.
+O arquivo [grafico/plotar_csv.py](C:\Users\berti\Documents\FACULDADE\projeto_sensor_vibracao\PROJETO_SENSOR_VIBRACAO\grafico\plotar_csv.py) lê uma captura CSV já salva e abre dois gráficos interativos no navegador: aceleração no primeiro painel e giroscópio no segundo.
 
-## Papel no projeto
-
-`grafico/plotar_csv.py` pertence à análise posterior. Ele não abre serial, não cria threads e não modifica o CSV: lê o histórico produzido por [[gravador]] e o apresenta de modo explorável. Ao encerrar uma sessão com dados, [[janela]] importa e chama `plotar_csv()`; o mesmo arquivo também pode ser chamado diretamente no terminal.
+Ele não lê o Arduino e não altera o CSV. É uma ferramenta de análise posterior. A janela também o chama quando você clica em **Parar**, depois que manager termina o gravador.
 
 ```text
-[[gravador]] → CSV em dados/ → plotar_csv.py → navegador
-                                      ↑
-                         chamada opcional de [[janela]]
+Clique em Parar na janela
+          ↓
+manager encerra Coletor e GravadorWorker
+          ↓
+GravadorCSV fecha o CSV
+          ↓
+Janela chama plotar_csv(arquivo)
+          ↓
+Plotly abre o navegador
 ```
 
-## Entrada e saída
-
-| Item | Contrato real |
+| Termo | Significado simples |
 |---|---|
-| Entrada | Caminho opcional (`str`, `Path` ou `None`). Sem caminho, procura o CSV mais recente. |
-| Colunas exigidas | `contador`, `ax`, `ay`, `az`, `gx`, `gy`, `gz`; o contrato maior está em [[esquema-csv]]. |
-| Saída | Figura Plotly no navegador e mensagens com caminho e número de amostras. |
-| Efeito persistente | Nenhum; o arquivo é somente lido. |
+| CSV | Tabela de texto com colunas separadas por vírgula. |
+| pandas | Biblioteca que lê a tabela em um DataFrame. |
+| DataFrame | Tabela pandas: linhas são amostras, colunas têm nomes. |
+| Plotly | Biblioteca que cria gráficos interativos no navegador. |
+| trace | Uma curva adicionada a uma figura Plotly. |
+| subplot | Um painel dentro de uma mesma figura. |
+| Path | Objeto que representa um caminho de arquivo. |
+| argumento | Informação opcional passada pelo terminal. |
 
-## Dependências
-
-| Biblioteca | Por que aparece aqui |
-|---|---|
-| `argparse` | Aceita um caminho opcional no terminal. |
-| `pathlib.Path` | Localiza a raiz, lista candidatos e resolve caminhos. |
-| `pandas` | Converte o CSV em `DataFrame` com colunas nomeadas. |
-| `plotly.graph_objects` | Cria cada curva `Scatter`. |
-| `plotly.subplots` | Separa aceleração e giro em painéis com X compartilhado. |
-
-## Código explicado, na ordem do arquivo
-
-### Importações, raiz e canais
+## Linhas 1 a 18: docstring e imports
 
 ```python
+"""Plota um arquivo CSV de sensores usando Plotly.
+
+Uso pelo terminal:
+    python grafico/plotar_csv.py
+    python grafico/plotar_csv.py caminho/para/arquivo.csv
+"""
 import argparse
 from pathlib import Path
-
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+```
 
+A docstring explica dois modos de uso pelo terminal. Sem caminho, o script procura o arquivo CSV mais recente. Com caminho, usa aquele arquivo específico.
+
+argparse interpreta argumentos digitados no terminal. Path trata caminhos. pandas, com apelido pd, lê CSV. plotly.graph_objects, com apelido go, fornece Scatter para curvas. make_subplots cria uma figura com mais de um painel.
+
+## Linhas 20 a 28: localizar o projeto e definir os eixos
+
+```python
 PASTA_PROJETO = Path(__file__).resolve().parent.parent
 PASTA_DADOS = PASTA_PROJETO / "dados"
 COLUNAS_ACELERACAO = ("ax", "ay", "az")
 COLUNAS_GIRO = ("gx", "gy", "gz")
 ```
 
-`Path(__file__).resolve()` encontra este script independentemente de onde o terminal foi aberto. Os dois `.parent` sobem de `grafico/plotar_csv.py` até a raiz; o operador `/` monta `dados/` sem concatenar strings.
+__file__ é o caminho deste próprio script. resolve o transforma em caminho absoluto. parent sobe um diretório:
 
-`pandas` será usado para `pd.read_csv()`: o resultado é um `DataFrame`, tabela com nomes de coluna. As tuplas agrupam sinais por unidade física e permitem criar as seis curvas com dois loops, em vez de repetir código. Elas precisam acompanhar os nomes produzidos por [[gravador]].
+```text
+.../PROJETO_SENSOR_VIBRACAO/grafico/plotar_csv.py
+                              ↑ parent: grafico
+                    ↑ parent.parent: PROJETO_SENSOR_VIBRACAO
+```
 
-### `csv_mais_recente()`
+O operador / entre Paths forma o caminho dados. Isso é preferível a concatenar barras manualmente.
+
+As duas tuplas agrupam as três colunas de aceleração e as três do giroscópio. Elas permitem criar as seis curvas com dois loops.
+
+## Linhas 31 a 39: escolher o CSV mais recente
 
 ```python
 def csv_mais_recente(pasta: Path = PASTA_DADOS) -> Path:
     arquivos = list(pasta.glob("*.csv"))
     if not arquivos:
-        raise FileNotFoundError(f"Nenhum arquivo CSV encontrado em: {pasta}")
-    return max(arquivos, key=lambda arquivo: arquivo.stat().st_mtime)
+        raise FileNotFoundError(
+            f"Nenhum arquivo CSV encontrado em: {pasta}"
+        )
+    return max(
+        arquivos,
+        key=lambda arquivo: arquivo.stat().st_mtime
+    )
 ```
 
-O *type hint* informa que recebe e devolve `Path`. `.glob("*.csv")` cria candidatos; `list(...)` os materializa para `max()`. A `lambda` é uma função curta usada como chave: `arquivo.stat().st_mtime` é a data de modificação. O retorno é, portanto, o CSV modificado por último.
+csv_mais_recente recebe uma pasta; se ninguém passar uma, usa PASTA_DADOS. A anotação -> Path diz que o retorno esperado é um caminho.
 
-> [!warning] “Mais recente” não significa “da sessão atual”
-> Qualquer CSV mais novo na pasta vence a comparação. Se outro processo escrever na mesma pasta, o padrão sem argumento pode abrir uma captura diferente da esperada.
+glob("*.csv") encontra somente arquivos cujo nome termina em .csv. list materializa o resultado para permitir verificar e escolher o maior.
 
-### Escolha e validação do caminho
+```python
+if not arquivos:
+```
+
+Uma lista vazia é falsa em Python. not a transforma em verdadeira quando não existem CSVs. raise interrompe a função e informa claramente o motivo.
+
+max escolhe o maior conforme key. lambda é uma função pequena. arquivo.stat().st_mtime é a data/hora da última modificação do arquivo. Portanto, o retorno é o CSV modificado mais recentemente.
+
+## Linhas 42 a 56: receber e validar o caminho
 
 ```python
 def plotar_csv(caminho: str | Path | None = None) -> None:
-    arquivo = csv_mais_recente() if caminho is None else Path(caminho)
-    arquivo = arquivo.resolve()
-    if not arquivo.is_file():
-        raise FileNotFoundError(f"Arquivo não encontrado: {arquivo}")
 ```
 
-`str | Path | None` documenta os três usos permitidos. A expressão condicional usa o mais recente apenas para `None`; um caminho informado vira `Path`. `.resolve()` transforma caminho relativo em absoluto a partir do terminal, e `.is_file()` rejeita diretórios ou caminhos inexistentes antes da leitura.
+A função aceita três tipos:
 
-### Leitura e contrato mínimo
+- str, por exemplo dados/teste.csv;
+- Path, um caminho já criado em Python;
+- None, que significa “procure o CSV mais recente”.
+
+-> None informa que a função não devolve dado: seu resultado é abrir a figura.
+
+```python
+arquivo = csv_mais_recente() if caminho is None else Path(caminho)
+arquivo = arquivo.resolve()
+if not arquivo.is_file():
+    raise FileNotFoundError(f"Arquivo não encontrado: {arquivo}")
+```
+
+A primeira linha é uma expressão condicional. Se caminho for None, chama csv_mais_recente. Caso contrário, transforma caminho em Path.
+
+resolve transforma um caminho relativo em absoluto. Por exemplo, dados/teste.csv passa a apontar para o local completo a partir do diretório atual do terminal.
+
+is_file verifica se o caminho existe e é um arquivo, não uma pasta. Se falhar, FileNotFoundError aparece antes de pandas tentar carregar algo inválido.
+
+## Linhas 58 a 68: ler a tabela e exigir as colunas
 
 ```python
 dados = pd.read_csv(arquivo)
 coluna_x = "contador"
-colunas_necessarias = {coluna_x, *COLUNAS_ACELERACAO, *COLUNAS_GIRO}
+colunas_necessarias = {
+    coluna_x,
+    *COLUNAS_ACELERACAO,
+    *COLUNAS_GIRO,
+}
 colunas_faltantes = colunas_necessarias - set(dados.columns)
+```
 
+read_csv lê cabeçalho e linhas, devolvendo um DataFrame. dados.columns contém os nomes de coluna lidos.
+
+O asterisco em *COLUNAS_ACELERACAO expande a tupla dentro do conjunto:
+
+```python
+{"contador", "ax", "ay", "az", "gx", "gy", "gz"}
+```
+
+A subtração de conjuntos encontra nomes obrigatórios que não aparecem no CSV.
+
+```python
 if colunas_faltantes:
     faltantes = ", ".join(sorted(colunas_faltantes))
     raise ValueError(f"Colunas ausentes no CSV: {faltantes}")
 ```
 
-`pd.read_csv()` interpreta o cabeçalho e carrega as colunas. `{...}` cria um conjunto; `*COLUNAS_ACELERACAO` e `*COLUNAS_GIRO` expandem as tuplas. A subtração encontra nomes obrigatórios ausentes. `sorted()` estabiliza a mensagem e `join()` a torna legível.
+Se há qualquer coluna faltante, sorted as coloca em ordem estável e join cria um texto separado por vírgulas. ValueError interrompe antes de tentar acessar uma coluna inexistente.
 
-> [!warning] Visualizar não é validar
-> O contrato aqui é suficiente para desenhar. Ele não confere ordem completa, saltos, `NaN`, infinito nem limites físicos. Use [[testar_dados]] antes de concluir que um ensaio é consistente.
+O programa valida só as colunas necessárias para desenhar. Ele não verifica aqui se há NaN, se o contador possui saltos ou se os valores são fisicamente plausíveis.
 
-### Dois painéis e seis curvas
+## Linhas 70 a 78: criar os dois painéis
 
 ```python
 figura = make_subplots(
-    rows=2, cols=1, shared_xaxes=True,
+    rows=2,
+    cols=1,
+    shared_xaxes=True,
     vertical_spacing=0.12,
     subplot_titles=("Aceleração", "Giroscópio"),
 )
 ```
 
-`make_subplots()` retorna uma `Figure` única com dois painéis. `shared_xaxes=True` mantém zoom e navegação horizontais alinhados. A separação é importante: `g` e `°/s` têm escalas e significado diferentes.
+rows=2 e cols=1 criam dois painéis um acima do outro. shared_xaxes=True faz ambos compartilharem o eixo horizontal: zoom e deslocamento horizontais ficam alinhados. vertical_spacing controla o espaço entre painéis. subplot_titles define os títulos internos.
+
+A separação é importante porque aceleração usa g e giroscópio usa graus por segundo. Uma escala compartilhada poderia esconder variações menores de um dos grupos.
+
+## Linhas 80 a 104: adicionar as seis curvas
 
 ```python
 for eixo in COLUNAS_ACELERACAO:
     figura.add_trace(
         go.Scatter(
-            x=dados[coluna_x], y=dados[eixo],
-            mode="lines", name=eixo.upper(),
+            x=dados[coluna_x],
+            y=dados[eixo],
+            mode="lines",
+            name=eixo.upper(),
         ),
-        row=1, col=1,
+        row=1,
+        col=1,
     )
 ```
 
-O `for` percorre `ax`, `ay` e `az`. Em cada volta, `dados[coluna_x]` fornece X e `dados[eixo]` fornece Y; `Scatter(..., mode="lines")` cria linha e `eixo.upper()` cria legenda. O segundo loop do arquivo repete a mesma estratégia com `COLUNAS_GIRO`, em `row=2`.
+O loop ocorre três vezes: eixo vale ax, depois ay e depois az.
 
-> [!tip] Estratégia reutilizável
-> Agrupar canais em tuplas e percorrê-los reduz duplicação e mantém uma regra visual consistente. É útil para telemetria, sensores biomédicos e séries financeiras.
-
-### Layout e abertura
+dados[coluna_x] seleciona a coluna contador e fornece X. dados[eixo] seleciona a coluna atual e fornece Y. Scatter cria uma série Plotly. mode="lines" desenha linhas sem marcadores. upper transforma ax em AX para a legenda. add_trace coloca a curva na linha 1, coluna 1, isto é, no painel superior.
 
 ```python
-figura.update_yaxes(title_text="Aceleração (g)", row=1, col=1)
-figura.update_yaxes(title_text="Velocidade angular (°/s)", row=2, col=1)
+for eixo in COLUNAS_GIRO:
+    figura.add_trace(
+        go.Scatter(
+            x=dados[coluna_x],
+            y=dados[eixo],
+            mode="lines",
+            name=eixo.upper(),
+        ),
+        row=2,
+        col=1,
+    )
+```
+
+O segundo loop é igual, mas percorre gx, gy e gz e adiciona ao segundo painel.
+
+O eixo X é contador, não tempo em segundos. Isso mostra ordem e pode tornar lacunas de contador visíveis, mas a distância horizontal não deve ser interpretada como duração física exata.
+
+## Linhas 106 a 121: aparência, mensagens e navegador
+
+```python
+figura.update_yaxes(
+    title_text="Aceleração (g)",
+    row=1,
+    col=1,
+)
+figura.update_yaxes(
+    title_text="Velocidade angular (°/s)",
+    row=2,
+    col=1,
+)
 figura.update_xaxes(title_text="Amostra", row=2, col=1)
+```
+
+As duas primeiras linhas nomeiam cada eixo Y e deixam explícitas suas unidades. update_xaxes nomeia o eixo X no painel inferior; como X é compartilhado, um rótulo basta.
+
+```python
 figura.update_layout(
     title=f"Dados do sensor — {arquivo.name}",
     template="plotly_white",
     hovermode="x unified",
     height=1200,
 )
+```
+
+arquivo.name usa somente o nome final do arquivo no título. plotly_white escolhe visual claro. hovermode="x unified" faz o cursor mostrar, em uma única caixa, valores das várias curvas na mesma posição X. height define uma figura alta o bastante para dois painéis.
+
+```python
+print(f"Plotando: {arquivo}")
+print(f"Amostras: {len(dados)}")
 figura.show()
 ```
 
-Os rótulos preservam as unidades. A *f-string* mostra somente `arquivo.name` no título. `hovermode="x unified"` reúne valores das curvas na mesma amostra em um único tooltip; `height=1200` dá espaço aos painéis. `figura.show()` abre a figura interativa no navegador padrão.
+Os dois prints informam no terminal o caminho absoluto e a quantidade de linhas do DataFrame. len(dados) conta linhas, isto é, amostras. show abre a figura interativa no navegador padrão.
 
-> [!warning] Escala de dados
-> O script carrega o CSV inteiro em memória. Capturas grandes podem demorar. O eixo X é `contador`, não tempo: lacunas aparecem visualmente, mas distância horizontal não é duração em segundos.
-
-### Terminal e guarda de execução
+## Linhas 124 a 138: uso pelo terminal
 
 ```python
-parser = argparse.ArgumentParser(description="Plota um CSV do sensor com Plotly.")
-parser.add_argument("caminho", nargs="?", help="caminho do CSV; se omitido, usa o CSV mais recente da pasta dados")
-argumentos = parser.parse_args()
-plotar_csv(argumentos.caminho)
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Plota um CSV do sensor com Plotly."
+    )
+    parser.add_argument(
+        "caminho",
+        nargs="?",
+        help="caminho do CSV; se omitido, usa o CSV mais recente da pasta dados",
+    )
+    argumentos = parser.parse_args()
+    plotar_csv(argumentos.caminho)
+```
 
+main adapta argumentos do terminal para a função principal. ArgumentParser define a ajuda. add_argument cria o argumento posicional caminho.
+
+nargs="?" faz caminho ser opcional. Se omitido, argumentos.caminho vale None e plotar_csv busca o CSV mais recente. Se fornecido, vale o texto digitado.
+
+```python
 if __name__ == "__main__":
     main()
 ```
 
-`nargs="?"` torna o argumento posicional opcional: sem ele, `argumentos.caminho` é `None`. `main()` adapta a CLI e delega o trabalho à função reutilizável. A guarda `__main__` impede que o parser execute quando [[janela]] importa `csv_mais_recente` e `plotar_csv` ao terminar uma sessão.
+Esse bloco só roda ao executar o arquivo diretamente. Quando Janela importa csv_mais_recente e plotar_csv após clicar em Parar, main não executa e nenhum argumento do terminal é analisado.
 
-## Estratégias usadas
+## Relação com o botão Parar
 
-> [!tip] Separar aquisição de análise
-> A visualização pesada roda depois da captura. Isso preserva CPU e responsividade do caminho de aquisição em tempo real.
+Na janela, o fluxo relevante é:
 
-> [!tip] Validar antes de usar uma biblioteca complexa
-> Checar colunas antes de Plotly gera uma mensagem de domínio compreensível, em vez de uma falha interna difícil de diagnosticar.
+```python
+houve_amostras = self.manager.coletor.numero_amostras > 0
+encerrou_aquisicao = self.manager.parar()
+if not encerrou_aquisicao or not houve_amostras:
+    return
 
-## Insights para outros projetos
+arquivo_csv = csv_mais_recente(pasta_dados)
+plotar_csv(arquivo_csv)
+```
 
-- Use `Path(__file__).resolve()` para localizar recursos do projeto.
-- Compare conjuntos para validar colunas obrigatórias.
-- Use subgráficos quando séries têm unidades diferentes.
-- Separe a função reutilizável do parser de linha de comando.
+manager.parar espera o Coletor terminar, envia None ao GravadorWorker e espera o CSV ser fechado. Só depois Janela procura o arquivo mais recente e o entrega a plotar_csv.
 
 ## Resumo mental
 
-`plotar_csv.py` é a **lupa da sessão gravada**: recebe ou encontra um CSV, verifica as colunas necessárias, carrega tudo em `DataFrame` e abre aceleração e giro em Plotly. Para julgar se a captura é confiável antes de interpretá-la, consulte [[testar_dados]].
-#PROJETO_SENSOR_VIBRAÇÃO
+plotar_csv é a lupa do ensaio salvo. Ele encontra ou recebe um CSV, verifica colunas, carrega tudo com pandas, monta dois painéis Plotly e abre uma análise interativa no navegador.

@@ -1,0 +1,8 @@
+.venv/
+media/
+__pycache__/
+*.log
+*_preview.mp4
+*_cena_*.mp4
+qa/
+partial_movie_files/

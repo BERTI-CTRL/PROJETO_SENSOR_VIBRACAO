@@ -47,7 +47,7 @@ INTERVALO_ESTATISTICAS_MS = 500
 PONTOS_GRAFICO = 150
 
 # Faixas Y iniciais separadas respeitam as unidades fisicas de cada sensor.
-INTERVALO_EIXO_Y_ACELERAÇÃO = (-40,40)#g
+INTERVALO_EIXO_Y_ACELERAÇÃO = (-3,3)#g
 INTERVALO_EIXO_Y_GIROSCÓPIO = (-50,50)#°/s
 
 # False fixa a navegacao interativa para evitar zoom/pan acidental e trabalho

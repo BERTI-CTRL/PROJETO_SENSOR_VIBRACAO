@@ -30,7 +30,7 @@ Se usar `uv`, `uv sync` também instala a dependência registrada em `pyproject.
 
 1. Grave o firmware em `arduino/mpu-6050/mpu-6050.ino` e conecte o Arduino.
 2. Feche o Serial Monitor e qualquer outra parte deste projeto que esteja usando a porta.
-3. O jogo espera `COM4` a `115200` baud. Caso o Arduino esteja em outra porta, altere `SERIAL_PORT` em `game/config.py`.
+3. O jogo usa `COM4` a `230400` baud. Caso o Arduino esteja em outra porta, altere `PORTA_SERIAL` em `sensor/config.py`.
 4. Abra o jogo, mantenha o sensor na posição em que pretende jogar e pressione `C`.
 
 Na montagem fotografada, os dados parados existentes mostram `ax` próximo de `+1 g` e `ay` próximo de zero. Por isso, o controle usa mudanças em `ay`. Caso a direção fique invertida, a tecla `I` corrige sem alterar nenhum código.

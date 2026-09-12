@@ -60,6 +60,7 @@ diagnóstico para o eixo `ax`.
 | Nota | Script | Uso principal |
 |---|---|---|
 | [[sensor/__init__]] | `sensor/__init__.py` | Declara o pacote sem efeitos de inicialização. |
+| [[config]] | `sensor/config.py` | Centraliza a porta e o baud rate da conexão serial. |
 | [[serial_reader]] | `sensor/serial_reader.py` | Lê, valida e converte a linha serial. |
 | [[coletor]] | `sensor/coletor.py` | Calcula Hz, detecta lacunas e encaminha a amostra. |
 | [[buffers]] | `sensor/buffers.py` | Mantém a janela circular de amostras na RAM. |

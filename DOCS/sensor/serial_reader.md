@@ -50,20 +50,21 @@ print("INICIOU O SERIAL_READER")
 import time
 import serial
 import random
+from sensor.config import BAUD_RATE, PORTA_SERIAL
 ```
 
 A primeira linha imprime a mensagem assim que Python importa o módulo. Por exemplo, importar manager também importa coletor, que importa serial_reader; por isso a mensagem aparece mesmo sem iniciar a coleta.
 
-time fornece relógios e pausas. serial é a biblioteca PySerial que abre COM4 e lê bytes. random é usado somente pelo gerador falso de teste.
+time fornece relógios e pausas. serial é a biblioteca PySerial que abre a conexão e lê bytes. random é usado somente pelo gerador falso de teste. A porta e o baud rate vêm de `sensor/config.py`.
 
 ## Linhas 12 a 19: função principal e regra de parada
 
 ```python
-def ler_dados(porta, baudrate=230400, timeout=0.1, deve_continuar=None):
+def ler_dados(porta=PORTA_SERIAL, baudrate=BAUD_RATE, timeout=0.1, deve_continuar=None):
     """Lê linhas da serial enquanto a aquisição estiver ativa."""
 ```
 
-porta é obrigatória, por exemplo COM4. baudrate é a velocidade padrão 230400. timeout é 0.1 segundo. deve_continuar é opcional; se fornecido, deve ser uma função que devolve True ou False.
+porta e baudrate usam por padrão `PORTA_SERIAL` e `BAUD_RATE`, definidos em `sensor/config.py`. Eles ainda podem ser substituídos explicitamente em testes ou usos especiais. timeout é 0.1 segundo. deve_continuar é opcional; se fornecido, deve ser uma função que devolve True ou False.
 
 A função é um generator porque contém yield mais adiante. Portanto ela não inicia tudo no instante da chamada: ela começa a trabalhar quando alguém a percorre com for.
 
@@ -264,10 +265,7 @@ python -m sensor.serial_reader
 Ele não roda quando Coletor importa ler_dados.
 
 ```python
-for tempo_arduino_us, timestamp, contador, ax, ay, az, gx, gy, gz in ler_dados(
-    porta="COM4",
-    baudrate=115200,
-):
+for tempo_arduino_us, timestamp, contador, ax, ay, az, gx, gy, gz in ler_dados():
     print("contador:", contador)
     print(
         f"Aceleração em x:{ax} | "
@@ -276,7 +274,7 @@ for tempo_arduino_us, timestamp, contador, ax, ay, az, gx, gy, gz in ler_dados(
     )
 ```
 
-O for exige os nove valores reais gerados por ler_dados. A porta e baudrate são definidos manualmente neste modo. O baudrate 115200 diverge do padrão 230400 e da configuração do firmware atual; para funcionar, ambos os lados da serial precisam usar o mesmo valor.
+O `for` exige os nove valores reais gerados por `ler_dados`. Neste modo, a porta e o baud rate também vêm de `sensor/config.py`, evitando uma configuração diferente do restante do projeto.
 
 As linhas de giro e o loop fake no final estão comentados ou colocados em uma string multilinha. Portanto não executam.
 

@@ -30,7 +30,7 @@ O `contador` permite detectar perdas. `tempo_arduino_us`, vindo de `micros()`, �
 
 ## 2. Leitor serial
 
-`sensor/serial_reader.py` abre a porta em `115200` baud, aguarda a reinicialização do Arduino e usa `readline()` para obter uma linha completa. Só aceita oito campos numéricos.
+`sensor/config.py` centraliza a porta (`COM4`) e o baud rate (`230400`). `sensor/serial_reader.py` usa essa configuração, aguarda a reinicialização do Arduino e usa `readline()` para obter uma linha completa. Só aceita oito campos numéricos.
 
 O leitor recebe de `coletor.py` uma função `deve_continuar`. Assim, ao parar a coleta, ele encerra mesmo se a serial não estiver recebendo linhas; no pior caso espera o timeout serial de `0,1 s`.
 

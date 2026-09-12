@@ -21,7 +21,7 @@ MPU6050
    │ I²C
    ▼
 Arduino (.ino)
-   │ Serial USB, 115200 baud, uma linha CSV por amostra
+   │ Serial USB, 230400 baud, uma linha CSV por amostra
    ▼
 sensor/serial_reader.py
    │ generator com uma amostra validada
@@ -89,7 +89,7 @@ Em placas Mega, Leonardo, ESP32 ou similares, os pinos I²C são diferentes. Con
 
 No `setup()`, o firmware:
 
-1. inicia a serial em `115200` baud;
+1. inicia a serial em `230400` baud;
 2. inicia o barramento I²C com `Wire.begin()`;
 3. verifica o MPU6050 no endereço padrão `0x68`;
 4. acorda o sensor pelo registrador `0x6B`;
@@ -125,7 +125,7 @@ Se alterar os bits de escala no `.ino`, altere também o divisor. Por exemplo, t
 
 ### Cuidados no firmware
 
-- `Serial.begin(115200)` precisa coincidir com o Python.
+- `Serial.begin(230400)` precisa coincidir com `BAUD_RATE` em `sensor/config.py`.
 - O firmware contém `delay(10000)` quando o MPU é encontrado; aguarde cerca de 10 segundos após reiniciar o Arduino.
 - Não use `Serial.print()` de depuração no mesmo fluxo dos dados, pois qualquer texto extra quebra o formato CSV esperado pelo Python.
 - `micros()` e o contador podem sofrer overflow em execuções muito longas. O código atual calcula Hz assumindo que os valores avançam normalmente; experimentos extensos devem tratar esse caso.
@@ -133,17 +133,20 @@ Se alterar os bits de escala no `.ino`, altere também o divisor. Por exemplo, t
 
 ## Configurar a porta serial
 
-A porta padrão está em [sensor/coletor.py](sensor/coletor.py):
+A porta e o baud rate usados pelos scripts Python estão centralizados em [sensor/config.py](sensor/config.py):
 
 ```python
-def __init__(self, porta="COM4", baudrate=115200, fila_gravacao=None):
+PORTA_SERIAL = "COM4"
+BAUD_RATE = 230400
 ```
 
-Troque `COM4` pela porta mostrada pela Arduino IDE ou pelo Gerenciador de Dispositivos, por exemplo:
+Para usar outra porta, troque somente `PORTA_SERIAL` pela porta mostrada pela Arduino IDE ou pelo Gerenciador de Dispositivos, por exemplo:
 
 ```python
-def __init__(self, porta="COM5", baudrate=115200, fila_gravacao=None):
+PORTA_SERIAL = "COM5"
 ```
+
+O leitor serial, o coletor e o jogo reutilizam esses dois valores. O baud rate precisa continuar igual ao configurado no Arduino.
 
 No Windows, uma porta ocupada por Serial Monitor, Plotter Serial ou outro programa não pode ser aberta pelo projeto. Feche esse programa antes de iniciar a coleta.
 
@@ -462,7 +465,7 @@ Se apenas uma dessas etapas for esquecida, o leitor pode descartar linhas por n�
 ```text
 PROJETO_SENSOR_VIBRACAO/
 ├── arduino/mpu-6050/mpu-6050.ino  # firmware do sensor
-├── sensor/                         # leitura, coleta, buffer, manager e CSV
+├── sensor/                         # configuração, leitura, coleta, buffer, manager e CSV
 ├── realtime/                       # interface PyQt e ponto de entrada
 ├── utils/statistics.py             # estatísticas descritivas
 ├── grafico/plotar_csv.py           # análise interativa de CSV com Plotly

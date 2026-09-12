@@ -106,7 +106,7 @@ class Coletor:
 Cria a classe chamada `Coletor`. Ela define quais informações e ações todo coletor terá.
 
 ```python
-def __init__(self, porta="COM4", baudrate=230400, fila_gravacao=None):
+def __init__(self, porta=PORTA_SERIAL, baudrate=BAUD_RATE, fila_gravacao=None):
 ```
 
 `__init__` é executado automaticamente quando alguém cria o objeto:
@@ -118,20 +118,20 @@ coletor = Coletor()
 Os parâmetros são:
 
 ```python
-porta="COM4"
+porta=PORTA_SERIAL
 ```
 
-A porta serial padrão usada pelo Arduino no Windows. Pode ser alterada, por exemplo:
+A porta serial padrão vem de `sensor/config.py`. Para alterá-la para todo o projeto, edite:
 
 ```python
-coletor = Coletor(porta="COM5")
+PORTA_SERIAL = "COM5"
 ```
 
 ```python
-baudrate=230400
+baudrate=BAUD_RATE
 ```
 
-É a velocidade de comunicação serial. Ela precisa ser igual à configurada no Arduino:
+O baud rate também vem de `sensor/config.py` e precisa ser igual ao configurado no Arduino:
 
 ```cpp
 Serial.begin(230400);

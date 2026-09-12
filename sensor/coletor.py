@@ -7,10 +7,11 @@ from queue import Full
 
 # Importa o gerador que transforma linhas seriais em amostras numéricas.
 from sensor.serial_reader import ler_dados
+from sensor.config import BAUD_RATE, PORTA_SERIAL
  
 
 class Coletor:
-    def __init__(self, porta="COM4", baudrate=230400, fila_gravacao=None):
+    def __init__(self, porta=PORTA_SERIAL, baudrate=BAUD_RATE, fila_gravacao=None):
         # Começa parado; executar() ativa este sinal antes de consumir a serial.
         self.rodando = False
 

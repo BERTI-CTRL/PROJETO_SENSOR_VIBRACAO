@@ -8,8 +8,10 @@ import serial
 # Gera valores aleatórios no gerador de teste sem hardware.
 import random
 
+from sensor.config import BAUD_RATE, PORTA_SERIAL
 
-def ler_dados(porta, baudrate=230400, timeout=0.1, deve_continuar=None):
+
+def ler_dados(porta=PORTA_SERIAL, baudrate=BAUD_RATE, timeout=0.1, deve_continuar=None):
     """Lê linhas da serial enquanto a aquisição estiver ativa."""
 
     # Encapsula a regra de parada, aceitando aquisição contínua quando não há callback.
@@ -165,8 +167,8 @@ if __name__ == "__main__":
 
     
 
-    # Lê continuamente a COM4 com 115200 para o modo manual; este valor diverge do padrão da função e é preservado.
-    for tempo_arduino_us,timestamp,contador,ax,ay,az,gx,gy,gz in ler_dados(porta="COM4",baudrate=115200):
+    # Usa a porta e o baud rate centralizados em sensor.config.
+    for tempo_arduino_us,timestamp,contador,ax,ay,az,gx,gy,gz in ler_dados():
 
         # Mostra o contador recebido para acompanhar a continuidade das amostras.
         print("contador:",contador)

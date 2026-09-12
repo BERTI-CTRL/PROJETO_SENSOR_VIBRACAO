@@ -32,7 +32,7 @@ Essas são as referências relevantes para **este** `.ino`; os PDFs têm muito m
 ```text
 Arduino inicia
    │
-   ├─ Serial.begin(115200) ──► linha CSV para o PC
+   ├─ Serial.begin(230400) ──► linha CSV para o PC
    │
    └─ Wire.begin() ──────────► I2C com MPU6050 em 0x68
                                   │
@@ -70,11 +70,11 @@ As sete variáveis `float` guardam valores lidos dos registradores. Temperatura 
 ### `setup()`: serial e barramento I2C
 
 ```cpp
-Serial.begin(115200);
+Serial.begin(230400);
 Wire.begin();
 ```
 
-`Serial.begin(115200)` abre a porta USB serial na taxa escolhida pelo firmware. O programa Python precisa usar a mesma taxa; a divergência não é corrigida automaticamente. `Wire.begin()` configura a placa como mestre do I2C para alcançar o MPU6050.
+`Serial.begin(230400)` abre a porta USB serial na taxa escolhida pelo firmware. O programa Python usa o mesmo valor por meio de `BAUD_RATE` em `sensor/config.py`; a divergência não é corrigida automaticamente. `Wire.begin()` configura a placa como mestre do I2C para alcançar o MPU6050.
 
 O teste seguinte tenta iniciar uma transmissão e interpreta retorno zero como ACK:
 

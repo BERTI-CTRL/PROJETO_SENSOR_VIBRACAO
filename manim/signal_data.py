@@ -14,7 +14,7 @@ import numpy as np
 DEFAULT_CSV = (
     Path(__file__).resolve().parent.parent
     / "dados"
-    / "dados_aceleracao_giro-2026-09-07_16-57-08.csv"
+    / "dados_aceleracao_giro-2026-09-21_15-13-31.csv"
 )
 GRAVITY = 9.80665  # m/s² por g; usado apenas ao comparar unidades no vídeo.
 
@@ -54,9 +54,9 @@ class SignalData:
 
 def load_signal(
     csv_path: str | Path | None = None,
-    axis: str = "az",
-    start: float = 8.0,
-    duration: float = 10.0,
+    axis: str = "ay",
+    start: float = 0.0,
+    duration: float = 15.0,
 ) -> SignalData:
     """Leia um recorte inclusivo ``[start, start + duration]`` de um CSV.
 

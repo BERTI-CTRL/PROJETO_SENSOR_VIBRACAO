@@ -1,8 +1,8 @@
 # Sensor de Vibração — narrativa e implementação
 
-**Objetivo:** transformar vibração em medição, dados e hipótese matemática, usando Manim e exportando os vídeos nesta pasta.
+**Objetivo:** apresentar a vibração do pórtico e o registro experimental com Manim, exportando os vídeos nesta pasta.
 
-**Arquitetura:** `main.py` contém uma cena contínua com oito passagens; `visuals.py` reúne tipografia, desenho de hardware, gráficos e sistema mecânico; `signal_data.py` lê os ensaios e calcula uma resposta teórica explicitamente ilustrativa; `render.py` seleciona formato, qualidade e dados. Assets gerados são vetores locais. O ambiente de renderização é isolado em `.venv/`.
+**Arquitetura:** `main.py` contém uma cena contínua com seis passagens; `visuals.py` reúne tipografia, desenho de hardware e gráficos; `signal_data.py` lê os ensaios e calcula estatísticas; `render.py` seleciona formato, qualidade e dados. Assets gerados são vetores locais. O ambiente de renderização é isolado em `.venv/`.
 
 **Tecnologias:** Python 3.11, Manim Community 0.20.1/Cairo, NumPy; fórmulas vetoriais desenhadas sem exigir instalação de LaTeX.
 
@@ -21,16 +21,14 @@
 2. **Medição:** o sensor acompanha a estrutura; eixos e pulsos revelam aceleração específica e giro. Os pulsos percorrem I²C → Arduino → USB/serial.
 3. **Dados:** o cabo se estende como eixo temporal; pulsos viram pontos reais e a curva cresce amostra a amostra. Tempo deriva de `micros()`.
 4. **Python:** a curva alimenta o buffer e o CSV, com referência aos módulos reais. Estatísticas calculadas no recorte aparecem associadas ao sinal.
-5. **Hipótese:** a curva se transforma em mola; massa e amortecedor completam a montagem. Os componentes originam seus termos na EDO. Selo de modelo conceitual.
-6. **Previsão:** solução livre subamortecida movimenta o bloco e constrói a curva. Explicita-se a passagem de deslocamento para aceleração.
-7. **Comparação:** medição e previsão vêm de origens distintas e se sobrepõem em eixos comuns. Realçam-se diferenças visuais sem declarar validação; ensaio controlado, calibração e identificação são próximos passos.
-8. **Retorno:** estrutura, sensor, dados e equação convergem num emblema final. “Medir. Modelar. Comparar. Entender.”
+5. **Idealização:** pórtico esquemático com a equação `M v''(t) + ε v'(t) + K v(t) = P(t)` e explicação dos termos; sem curva simulada ou comparação com os dados.
+6. **Retorno:** o sensor e o nome do projeto concluem a narrativa.
 
 ## Execução e verificação
 
 - [ ] Implementar e testar leitura de dados, seleção de intervalo e consistência da solução com a EDO.
 - [ ] Criar elementos vetoriais e primeiras passagens; renderizar uma cena curta antes de completar a narrativa.
-- [ ] Completar as oito passagens em composição adaptada a 16:9 e 9:16.
+- [ ] Completar as seis passagens em composição adaptada a 16:9 e 9:16.
 - [ ] Renderizar previews, extrair quadros de momentos-chave e corrigir cortes/sobreposições.
 - [ ] Renderizar MP4 final horizontal e vertical; verificar codec, dimensões, duração e reprodução/decodificação.
 - [ ] Registrar comandos, proveniência e limites no README; manter o restante do projeto intacto.

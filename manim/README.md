@@ -1,6 +1,6 @@
 # Animação — Sensor de Vibração
 
-Narrativa visual em Manim que acompanha o caminho **vibração → MPU6050 → Arduino → Python → CSV → modelo matemático → comparação**. O MP4 é salvo diretamente nesta pasta, sem abrir um player automaticamente. A animação não inclui narração nem trilha sonora.
+Narrativa visual em Manim que acompanha o caminho **vibração → MPU6050 → Arduino → Python → CSV → análise experimental**. O MP4 é salvo diretamente nesta pasta, sem abrir um player automaticamente. A animação não inclui narração nem trilha sonora.
 
 ## Renderização no Windows
 
@@ -42,7 +42,7 @@ Na tabela, `python` deve ser o executável de `manim/.venv`. Repetir a mesma com
 .\manim\.venv\Scripts\python.exe manim/render.py --help
 ```
 
-`--section` aceita de 1 a 8 e acrescenta `_cena_N` ao nome do vídeo. Omita a opção para renderizar a narrativa inteira. `--start` e `--duration` controlam o recorte dos dados, em segundos desde o início da aquisição; não controlam a duração da animação. Um caminho passado em `--csv` é relativo à pasta em que o comando é executado, podendo também ser absoluto. Os eixos disponíveis são `ax`, `ay` e `az`.
+`--section` aceita de 1 a 6 e acrescenta `_cena_N` ao nome do vídeo. Omita a opção para renderizar a narrativa inteira. `--start` e `--duration` controlam o recorte dos dados, em segundos desde o início da aquisição; não controlam a duração da animação. Um caminho passado em `--csv` é relativo à pasta em que o comando é executado, podendo também ser absoluto. Os eixos disponíveis são `ax`, `ay` e `az`.
 
 ## Narrativa e limites científicos
 
@@ -50,18 +50,14 @@ Na tabela, `python` deve ser o executável de `manim/.venv`. Repetir a mesma com
 2. **O sensor:** o MPU6050 converte o movimento em leituras de aceleração.
 3. **Do físico aos dados:** pulsos seguem pelo Arduino e se tornam uma sequência temporal e um gráfico.
 4. **Python:** os dados chegam pela serial, são armazenados em buffer/CSV e alimentam gráficos e estatísticas.
-5. **Modelo físico conceitual:** massa, mola e amortecedor introduzem a EDO de vibração.
-6. **A matemática ganha movimento:** uma solução ilustrativa gera o movimento e a curva teórica.
-7. **Teoria × experimento:** as curvas mostram como uma comparação pode ser feita, explicitando as limitações.
-8. **Fechamento:** sensor, dados, gráfico e matemática convergem em “Medir. Modelar. Comparar. Entender.”
+5. **Movimento do pórtico:** a equação idealizada `M v''(t) + ε v'(t) + K v(t) = P(t)` aparece com a explicação de cada termo.
+6. **Fechamento:** o ícone do sensor e o nome do projeto concluem a narrativa.
 
-O sinal experimental padrão usa `dados/dados_aceleracao_giro-2026-09-07_16-57-08.csv`, eixo `az`, no intervalo de 8 a 18 segundos. As acelerações do firmware estão em `g`; o tempo experimental é derivado de `tempo_arduino_us`. O gráfico reposiciona o início do recorte em `t = 0`. A figura animada da estrutura representa o fenômeno e não documenta uma geometria de bancada identificada no CSV.
+O sinal experimental padrão usa `dados/dados_aceleracao_giro-2026-09-21_15-13-31.csv`, eixo `ay`, do início da captura até 15 s. As acelerações do firmware estão em `g`; o tempo experimental é derivado de `tempo_arduino_us`. O gráfico reposiciona o início do recorte em `t = 0` e identifica o arquivo usado. A figura do pórtico é esquemática: não documenta uma geometria de bancada identificada no CSV.
 
-Esse recorte contém **2.186 amostras**, preservadas integralmente: média −0,022077 g, desvio padrão populacional 0,071794 g e RMS 0,075112 g. Esses números descrevem a aceleração bruta; não removem gravidade, offset ou ruído.
+O recorte padrão contém **3.213 amostras**: média −0,162 g, desvio padrão populacional 0,843 g e RMS 0,859 g. Os valores são aceleração bruta; não removem gravidade, offset ou ruído.
 
-A EDO e sua solução são apresentadas como uma etapa **conceitual**, sem afirmar que o repositório já implementa identificação de parâmetros ou validação do modelo. Os parâmetros ilustrativos não são ajustados ao ensaio. A comparação não produz métricas de concordância, erro ou qualidade de ajuste que não existam no projeto. Aceleração medida e deslocamento do modelo são grandezas diferentes e exigem um tratamento consistente para uma validação física.
-
-Na sobreposição, o vídeo usa **aceleração teórica `x''(t) / 9.80665` em g**, junto da aceleração medida. A resposta livre subamortecida utiliza m = 1 kg, c = 0,7 N·s/m, k = 16 N/m e A = 0,018 m, com x(0) = A e v(0) = −cA/(2m). São escolhas de demonstração. Montagem, orientação, gravidade, calibração, excitação e parâmetros precisam ser conhecidos para validar o modelo em um ensaio controlado.
+O vídeo apresenta o sinal bruto do eixo escolhido, em `g`, e as estatísticas do recorte. A equação do pórtico é uma idealização do movimento: `v(t)` representa o deslocamento, `v'(t)` a velocidade e `v''(t)` a aceleração. Os termos representam inércia (`M`), amortecimento (`ε`), rigidez (`K`) e força aplicada (`P(t)`). Os parâmetros não foram ajustados ao ensaio; não há curva simulada nem comparação teórica com o CSV.
 
 Se o CSV padrão estiver ausente, a animação usa uma sequência determinística identificada como **dados sintéticos**. Um `--csv` explícito ausente, um CSV inválido ou um recorte sem amostras suficientes gera erro, sem substituir silenciosamente a medição.
 
@@ -71,7 +67,7 @@ Esta pasta apenas lê os dados existentes para produzir a animação. Não alter
 
 - `main.py`: cena `SensorVibracao`, organização da narrativa e adaptação de layout.
 - `visuals.py`: cores, tipografia, sensor, Arduino, sistema mecânico, fórmulas e gráficos.
-- `signal_data.py`: leitura validada do CSV e solução mecânica ilustrativa.
+- `signal_data.py`: leitura validada do CSV e cálculo das estatísticas do sinal.
 - `test_signal_data.py`: 13 testes de integridade dos dados, seleção de intervalo e consistência da EDO.
 - `render.py`: opções de render, seleção de dados e nomes dos MP4s.
 - `requirements.txt`: dependências do ambiente da animação.
@@ -80,7 +76,7 @@ Esta pasta apenas lê os dados existentes para produzir a animação. Não alter
 - `data/README.md`: proveniência dos dados e detalhes científicos; o CSV original não é duplicado.
 - `media/horizontal/` e `media/vertical/`: caches independentes e arquivos intermediários do Manim.
 
-Para mudar a aparência, edite as cores e as funções em `visuals.py`. Para alterar o ritmo, ajuste `run_time` e `wait` nos oito métodos de `main.py`. Os textos, posições e tamanhos têm adaptações para o formato vertical; o vídeo vertical não é um corte do horizontal.
+Para mudar a aparência, edite as cores e as funções em `visuals.py`. Para alterar o ritmo, ajuste `run_time` e `wait` nos seis métodos de `main.py`. Os textos, posições e tamanhos têm adaptações para o formato vertical; o vídeo vertical não é um corte do horizontal.
 
 ## Verificação
 

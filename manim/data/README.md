@@ -1,10 +1,10 @@
 # Origem dos dados da animação
 
 O vídeo utiliza o CSV real existente em
-`../../dados/dados_aceleracao_giro-2026-09-07_16-57-08.csv`.
+`../../dados/dados_aceleracao_giro-2026-09-21_15-13-31.csv`.
 Não é necessário duplicar a captura nesta pasta.
 
-O recorte padrão usa `az`, em **g**, entre **8 e 18 segundos** após a primeira
+O recorte padrão usa `ay`, em **g**, entre **0 e 15 segundos** após a primeira
 amostra da sessão. O eixo temporal é calculado de `tempo_arduino_us`, em
 microssegundos. No gráfico, o tempo zero corresponde ao primeiro ponto do
 recorte; `SignalData.start_seconds` conserva sua posição dentro da captura.
@@ -12,11 +12,10 @@ Todos os pontos selecionados permanecem nos dados: não há filtro,
 reamostragem, normalização nem remoção do nível médio. As estatísticas RMS,
 média e desvio padrão descrevem a aceleração bruta em g.
 
-A captura completa contém **7.883 amostras**, dura aproximadamente **35,924 s**
-e apresenta taxa média efetiva de **219,408 amostras/s**. A validação com
-`dados/testar_dados.py` não encontrou saltos de contador, valores não finitos,
-regressões do tempo do PC nem valores fora das faixas configuradas.
-Essa validação atesta integridade estrutural, não comprova a hipótese mecânica.
+A captura completa contém **3.276 amostras** e dura aproximadamente **15,30 s**.
+O recorte padrão de 15 s contém **3.213 amostras**. A aceleração `ay` nesse
+recorte tem média de −0,162 g, desvio padrão de 0,843 g e RMS de 0,859 g.
+Esses valores descrevem o sinal bruto, sem remoção de gravidade, offset ou ruído.
 
 É possível escolher outro arquivo pelo argumento `csv_path` de `load_signal`,
 além de `axis`, `start` e `duration`. Um caminho informado que não exista gera
@@ -24,10 +23,22 @@ erro. Somente quando o CSV **padrão** estiver ausente será usada uma sequênci
 determinística marcada **DADOS SINTÉTICOS**, com `synthetic=True` e `source=None`.
 CSV inválido jamais é substituído silenciosamente por dados de demonstração.
 
-# Modelo ilustrativo e comparação
+# Modelo conceitual do pórtico e comparação
 
-`../signal_data.py` implementa apenas para a animação a hipótese de vibração
-livre subamortecida documentada em
+A cena do pórtico mostra a equação simbólica usada como referência pela equipe:
+
+```text
+M v''(t) + ε v'(t) + K v(t) = P(t)
+```
+
+Na animação, `v(t)` é o deslocamento generalizado do pórtico. A notação e os
+parâmetros são conceituais; não foram identificados a partir do CSV. A curva
+experimental mostrada usa o eixo `ay` da captura indicada acima.
+
+## Resposta ilustrativa usada nas cenas seguintes
+
+`../signal_data.py` implementa apenas para a animação uma resposta de vibração
+livre subamortecida inspirada no modelo documentado em
 `../../DOCS/arquitetura/teoria_vibração.md`:
 
 ```text
@@ -49,5 +60,7 @@ aplicada, separação da gravidade ou método experimental documentado que
 valide o modelo nesta captura. A estrutura desenhada é uma representação
 didática. A sobreposição de curvas mostra **como uma comparação poderia ser
 feita**, sem afirmar concordância, erro percentual ou validação do modelo.
-O rótulo “Comparação conceitual • parâmetros ilustrativos • sem ajuste
-experimental” deve acompanhar essa etapa do vídeo.
+Os painéis da comparação usam escalas verticais independentes para mostrar as
+formas dos sinais sem insinuar que suas amplitudes sejam comparáveis. O rótulo
+“Comparação conceitual • escalas verticais independentes • sem ajuste
+experimental” acompanha essa etapa do vídeo.

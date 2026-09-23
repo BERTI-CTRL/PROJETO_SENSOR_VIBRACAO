@@ -50,10 +50,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="preview: 540p/15 fps; final: 1080p/30 fps",
     )
     parser.add_argument("--csv", type=Path, help="CSV real; caminho relativo à pasta atual")
-    parser.add_argument("--axis", choices=("ax", "ay", "az"), default="az", help="eixo de aceleração")
-    parser.add_argument("--start", type=nonnegative_seconds, default=8.0, help="início do recorte do CSV, em s")
-    parser.add_argument("--duration", type=positive_seconds, default=10.0, help="duração do recorte do CSV, em s; não é a duração do vídeo")
-    parser.add_argument("--section", type=int, choices=range(1, 9), help="renderiza somente uma das oito cenas")
+    parser.add_argument("--axis", choices=("ax", "ay", "az"), default="ay", help="eixo de aceleração")
+    parser.add_argument("--start", type=nonnegative_seconds, default=0.0, help="início do recorte do CSV, em s")
+    parser.add_argument("--duration", type=positive_seconds, default=15.0, help="duração do recorte do CSV, em s; não é a duração do vídeo")
+    parser.add_argument("--section", type=int, choices=range(1, 7), help="renderiza somente uma das seis cenas")
     args = parser.parse_args(argv)
     if args.csv is not None:
         args.csv = args.csv.expanduser().resolve()

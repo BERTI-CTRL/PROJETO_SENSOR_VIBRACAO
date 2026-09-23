@@ -1,4 +1,4 @@
-"""Sensor de Vibração: uma narrativa contínua em oito passagens.
+"""Sensor de Vibração: uma narrativa contínua em seis passagens.
 
 Renderize com ``python render.py``. Cada passagem também funciona isolada
 por ``--section N``; formatos e recorte são recebidos por variáveis de ambiente.
@@ -14,10 +14,9 @@ from manim import *
 from visuals import (
     BG, PANEL, GRID, WHITE, MUTED, CYAN, AMBER, VIOLET, CORAL,
     text, badge, sensor_icon, arduino_icon, python_icon, csv_icon,
-    structure, mechanical, spring, edo_equation, solution_equation,
-    plot_frame, signal_curve,
+    structure, portal_frame, portal_equation, plot_frame, signal_curve,
 )
-from signal_data import load_signal, illustrative_response
+from signal_data import load_signal
 
 HERE = Path(__file__).resolve().parent
 VERTICAL = os.getenv("VIBRATION_FORMAT", "horizontal") == "vertical"
@@ -40,9 +39,9 @@ class SensorVibracao(MovingCameraScene):
         self.w, self.h = config.frame_width, config.frame_height
         self.safe = self.w - 1.1
         self.data = load_signal(
-            os.getenv("VIBRATION_CSV"), os.getenv("VIBRATION_AXIS", "az"),
-            float(os.getenv("VIBRATION_START", "8")),
-            float(os.getenv("VIBRATION_DURATION", "10")),
+            os.getenv("VIBRATION_CSV"), os.getenv("VIBRATION_AXIS", "ay"),
+            float(os.getenv("VIBRATION_START", "0")),
+            float(os.getenv("VIBRATION_DURATION", "15")),
         )
         # Scene.duration pertence ao Manim e muda a cada self.play().
         self.signal_duration = float(self.data.t[-1])
@@ -51,7 +50,7 @@ class SensorVibracao(MovingCameraScene):
         self.caption = None
         self.carry = None
         scenes = [self.vibration, self.sensor, self.samples, self.python,
-                  self.model, self.prediction, self.comparison, self.closing]
+                  self.experiment, self.closing]
         section = os.getenv("VIBRATION_SECTION")
         for index, scene in enumerate(scenes, 1):
             if section and int(section) != index:
@@ -70,18 +69,20 @@ class SensorVibracao(MovingCameraScene):
             tag.next_to(group, DOWN, aligned_edge=LEFT, buff=0.22)
             group.add(tag)
         if self.header:
-            self.play(FadeOut(self.header, shift=UP * 0.08), FadeIn(group, shift=UP * 0.12), run_time=0.6)
+            self.play(FadeOut(self.header, shift=UP * 0.08), FadeIn(group, shift=UP * 0.12),
+                      run_time=0.85, rate_func=smooth)
         else:
-            self.play(FadeIn(group, shift=UP * 0.12), run_time=0.65)
+            self.play(FadeIn(group, shift=UP * 0.12), run_time=0.75, rate_func=smooth)
         self.header = group
 
     def say(self, message, color=WHITE):
         label = text(message, 23 if self.portrait else 24, color, width=self.safe)
         label.move_to([0, -self.h / 2 + 0.62, 0])
         if self.caption:
-            self.play(FadeOut(self.caption, shift=DOWN * 0.05), FadeIn(label, shift=UP * 0.08), run_time=0.45)
+            self.play(FadeOut(self.caption, shift=DOWN * 0.05), FadeIn(label, shift=UP * 0.08),
+                      run_time=0.6, rate_func=smooth)
         else:
-            self.play(FadeIn(label, shift=UP * 0.08), run_time=0.5)
+            self.play(FadeIn(label, shift=UP * 0.08), run_time=0.6, rate_func=smooth)
         self.caption = label
 
     def transition(self, keep=None):
@@ -92,7 +93,8 @@ class SensorVibracao(MovingCameraScene):
         for mob in others:
             mob.clear_updaters(recursive=True)
         if others:
-            self.play(*[FadeOut(m, shift=DOWN * 0.12) for m in others], run_time=0.65)
+            self.play(*[FadeOut(m, shift=DOWN * 0.10, scale=0.97) for m in others],
+                      run_time=0.9, rate_func=smooth)
         self.carry = keep[0] if keep else None
 
     def vibration(self):
@@ -167,8 +169,12 @@ class SensorVibracao(MovingCameraScene):
         route = VMobject().set_points_as_corners([wires[0].get_start(), positions[1], wires[1].get_end()])
         self.play(LaggedStart(*[MoveAlongPath(p, route, rate_func=linear) for p in particles], lag_ratio=0.14), run_time=3)
         self.remove(particles)
-        packet = text("contador, tempo, ax, ay, az, gx, gy, gz", 22, CYAN,
-                      width=self.safe, font="Consolas").move_to([0, -1.5, 0])
+        packet = VGroup(
+            text("tempo_arduino_us, tempo_relogio_pc, contador", 18, CYAN,
+                 width=self.safe, font="Consolas"),
+            text("ax, ay, az, gx, gy, gz", 18, CYAN,
+                 width=self.safe, font="Consolas"),
+        ).arrange(DOWN, buff=0.12).move_to([0, -1.5, 0])
         self.play(TransformFromCopy(python, packet), run_time=1)
         self.wait(0.8)
         self.transition(keep=[packet])
@@ -196,7 +202,7 @@ class SensorVibracao(MovingCameraScene):
                   cursor.animate.shift(axes.c2p(self.signal_duration, 0) - axes.c2p(0, 0)), run_time=3.2)
         self.play(Create(curve), FadeOut(dots), FadeOut(cursor), run_time=3.8, rate_func=linear)
         source = text("dados sintéticos · demonstração" if self.data.synthetic else
-                      f"{self.data.source_label} · recorte {self.data.start_seconds:.1f}–{self.data.start_seconds + self.signal_duration:.1f} s",
+                      f"{self.data.source.name} · {self.data.axis} · recorte {self.data.start_seconds:.1f}–{self.data.start_seconds + self.signal_duration:.1f} s",
                       16, MUTED, width=self.safe)
         source.move_to([0, -2.65 if not self.portrait else -3.2, 0])
         count = badge(f"{len(self.data.t):,}".replace(',', '.') + " amostras · sem filtro", CYAN, 15)
@@ -252,144 +258,49 @@ class SensorVibracao(MovingCameraScene):
         self.play(LaggedStart(*[FadeIn(s, shift=UP * 0.12) for s in stats], lag_ratio=0.25), run_time=1.2)
         self.say("Média, desvio e RMS resumem este recorte bruto.")
         self.wait(1.4)
-        coil = spring([-2.1, 0, 0], [2.1, 0, 0])
-        if self.carry:
-            self.play(ReplacementTransform(self.carry, coil), run_time=1.1)
-        else:
-            self.play(Create(coil), run_time=1)
-        self.transition(keep=[coil])
+        # A curva medida segue como motivo visual até a cena do pórtico.
+        self.transition(keep=[self.carry] if self.carry else [])
 
-    def model(self):
-        self.heading(5, "Uma hipótese física", ("MODELO CONCEITUAL · ETAPA FUTURA", AMBER))
+    def experiment(self):
+        if self.carry:
+            self.play(FadeOut(self.carry), run_time=0.45, rate_func=smooth)
+            self.carry = None
+        self.heading(5, "O movimento do pórtico", ("MODELO IDEALIZADO", AMBER))
+        self.say("Uma equação idealiza o movimento do pórtico.")
         q = ValueTracker(0)
-        machine, bodies, labels = mechanical(q)
-        # Os updaters trabalham no espaço local; mover o conjunto requer congelá-los.
-        machine.clear_updaters(recursive=True)
-        machine.move_to([0, 0.1 if not self.portrait else 1.0, 0])
-        mass, coil, damper = bodies
-        if self.carry:
-            self.play(ReplacementTransform(self.carry, coil), run_time=0.8)
-            self.add(machine)
-            self.play(FadeIn(VGroup(*[m for m in machine if m is not coil])), run_time=1)
-        else:
-            self.play(Create(machine), run_time=1.3)
-        self.say("Massa, elasticidade e perdas: uma aproximação do sistema.")
-        self.wait(0.8)
-        eq = edo_equation(self.safe - 0.1).move_to([0, -1.9 if not self.portrait else -1.5, 0])
-        self.play(TransformFromCopy(labels[0], eq[0]), Indicate(mass, color=CYAN), run_time=1.1)
-        self.play(FadeIn(eq[1]), TransformFromCopy(labels[1], eq[2]), Indicate(damper, color=VIOLET), run_time=1.1)
-        self.play(FadeIn(eq[3]), TransformFromCopy(labels[2], eq[4]), Indicate(coil, color=AMBER), run_time=1.1)
-        self.play(FadeIn(eq[5:]), run_time=0.8)
-        self.add(eq)
-        meanings = VGroup(text("inércia", 17, CYAN), text("dissipação", 17, VIOLET), text("restauração", 17, AMBER))
-        meanings.arrange(RIGHT, buff=0.55).next_to(eq, DOWN, buff=0.3)
-        self.play(FadeIn(meanings), run_time=0.6)
-        self.say("A EDO relaciona forças e prevê o deslocamento x(t).")
-        self.wait(2)
-        origin = text("modelo descrito na documentação do projeto", 15, MUTED, width=self.safe)
-        origin.next_to(meanings, DOWN, buff=0.4)
-        self.play(FadeIn(origin), run_time=0.5)
-        self.wait(1)
-        self.transition(keep=[eq])
+        scale = 0.88 if self.portrait else 0.98
+        center = [0, 0.30 if self.portrait else 0.0, 0]
+        frame, _ = portal_frame(q, scale=scale, center=center)
+        self.play(Create(frame), run_time=1.2, rate_func=smooth)
+        self.add(frame)
+        self.play(q.animate.set_value(0.28), run_time=1.3, rate_func=there_and_back)
+        equation = portal_equation(self.safe - 0.35, 30 if self.portrait else 38)
+        equation.move_to([0, -1.55 if self.portrait else -1.78, 0])
+        self.play(FadeIn(equation, shift=UP * 0.08), run_time=0.9, rate_func=smooth)
 
-    def prediction(self):
-        self.heading(6, "A matemática ganha movimento", ("SIMULAÇÃO · PARÂMETROS ILUSTRATIVOS", AMBER))
-        solution = solution_equation(self.safe - 0.1).move_to([0, 1.6 if not self.portrait else 3.8, 0])
-        if self.carry:
-            self.play(ReplacementTransform(self.carry, solution), run_time=1.2)
+        definitions = [
+            ("M v̈(t)", "inércia: massa ×\naceleração", CYAN),
+            ("ε v̇(t)", "amortecimento:\ndissipa energia", VIOLET),
+            ("K v(t)", "rigidez: tende a restaurar\na posição", AMBER),
+            ("P(t)", "força aplicada que\nexcita o pórtico", CORAL),
+        ]
+        cards = VGroup()
+        for term, explanation, color in definitions:
+            term_label = text(term, 18 if self.portrait else 20, color, font="Cambria Math")
+            description = text(explanation, 14 if self.portrait else 15, WHITE,
+                               width=2.8 if self.portrait else 2.9)
+            cards.add(VGroup(term_label, description).arrange(DOWN, buff=0.12))
+        if self.portrait:
+            cards.arrange_in_grid(rows=2, cols=2, buff=(0.48, 0.38))
+            cards.move_to([0, -3.45, 0])
         else:
-            self.play(FadeIn(solution), run_time=0.8)
-        definitions = text("F(t) = 0    ·    α = c / 2m    ·    ω² = k/m − α²", 19, MUTED, width=self.safe)
-        definitions.next_to(solution, DOWN, buff=0.23)
-        self.play(FadeIn(definitions), run_time=0.6)
-        self.say("Depois de soltar, a amplitude diminui com a dissipação.")
-        time, q = ValueTracker(0), ValueTracker(0)
-        machine, _, _ = mechanical(q)
-        # Layout responsivo por atualização da posição dos componentes, sem câmera 3D.
-        scale = 0.56 if not self.portrait else 0.83
-        machine.clear_updaters(recursive=True)
-        machine.scale(scale).move_to([-3.8, -0.45, 0] if not self.portrait else [0, 1.3, 0])
-        # Uma cópia reconstruída mantém as coordenadas físicas e o mesmo fator de escala.
-        center = machine.get_center().copy()
-        def moving_machine():
-            obj, _, _ = mechanical(ValueTracker(float(illustrative_response(time.get_value())[0]) * 38))
-            obj.clear_updaters(recursive=True)
-            # Alinhar por um ponto fixo mantém a base imóvel durante a oscilação.
-            obj.scale(scale, about_point=ORIGIN)
-            obj.shift(center - np.array([-0.075 * scale, 0.05 * scale, 0]))
-            return obj
-        animated = always_redraw(moving_machine)
-        axes, frame = plot_frame(10, 22, width=5.5 if not self.portrait else 5.8,
-                                  height=2.25 if not self.portrait else 2.7,
-                                  center=[3.15, -0.8, 0] if not self.portrait else [0.3, -2.1, 0],
-                                  ylabel="deslocamento previsto · mm")
-        ts = np.linspace(0, 10, 1000)
-        xs = illustrative_response(ts)[0] * 1000
-        curve = signal_curve(axes, ts, xs, AMBER)
-        dot = Dot(axes.c2p(0, float(xs[0])), radius=0.055, color=AMBER)
-        dot.add_updater(lambda d: d.move_to(axes.c2p(time.get_value(), float(illustrative_response(time.get_value())[0]) * 1000)))
-        self.play(FadeIn(animated), Create(frame), run_time=1.1)
-        self.add(dot)
-        self.play(time.animate.set_value(10), Create(curve), run_time=6, rate_func=linear)
-        animated.clear_updaters(recursive=True); dot.clear_updaters()
-        params = text("m = 1 kg   ·   c = 0,7 N·s/m   ·   k = 16 N/m", 16, MUTED, width=self.safe)
-        params.move_to([0, -2.8 if not self.portrait else -4.55, 0])
-        self.play(FadeIn(params), run_time=0.6)
-        self.say("Para comparar com o sensor, calculamos a aceleração.")
-        acceleration = text("x(t)  →  d²x/dt²  →  aceleração em g", 29, AMBER,
-                            width=self.safe, font="Cambria Math").move_to([0, -0.5 if not self.portrait else -1.7, 0])
-        self.play(FadeOut(animated), FadeOut(frame), FadeOut(dot), FadeOut(params),
-                  FadeOut(definitions), ReplacementTransform(curve, acceleration), run_time=1.2)
-        self.wait(1.2)
-        self.transition(keep=[acceleration])
-
-    def comparison(self):
-        self.heading(7, "Teoria encontra medição", ("COMPARAÇÃO CONCEITUAL · SEM AJUSTE", AMBER))
-        if self.carry:
-            self.play(FadeOut(self.carry), run_time=0.5)
-        ymax = max(self.ymax, 0.15)
-        axes, frame = plot_frame(self.signal_duration, ymax, self.safe - 0.8,
-                                  2.9 if not self.portrait else 4.1,
-                                  [0.22, -0.1 if not self.portrait else 0.0, 0],
-                                  "aceleração · g")
-        real = signal_curve(axes, self.data.t, self.data.values)
-        predicted_a = illustrative_response(self.data.t)[2] / 9.80665
-        theory = signal_curve(axes, self.data.t, predicted_a, AMBER, 3)
-        top_y = 1.85 if not self.portrait else 3.15
-        sensor = sensor_icon(0.42).move_to([-2, top_y, 0])
-        eq = text("d²x/dt²", 23, AMBER, font="Cambria Math").move_to([2, top_y, 0])
-        measurement_name = text(("sintético · " if self.data.synthetic else "sensor · ") + self.data.axis, 20, CYAN)
-        theory_name = text("modelo", 20, AMBER)
-        VGroup(sensor, measurement_name).arrange(RIGHT, buff=0.18).move_to([-1.9, top_y, 0])
-        VGroup(eq, theory_name).arrange(RIGHT, buff=0.18).move_to([1.8, top_y, 0])
-        legends = VGroup(measurement_name, theory_name)
-        self.play(Create(frame), FadeIn(sensor), FadeIn(eq), FadeIn(legends), run_time=1)
-        self.say("Duas origens. A mesma grandeza física.")
-        measured_seed = Dot(sensor.get_center(), radius=0.065, color=CYAN)
-        theoretical_seed = Dot(eq.get_center(), radius=0.065, color=AMBER)
-        self.play(MoveAlongPath(measured_seed, Line(sensor.get_center(), real.get_start())), run_time=0.65)
-        self.play(Create(real), FadeOut(measured_seed), run_time=2, rate_func=linear)
-        self.play(MoveAlongPath(theoretical_seed, Line(eq.get_center(), theory.get_start())), run_time=0.65)
-        self.play(Create(theory), FadeOut(theoretical_seed), run_time=2, rate_func=linear)
-        self.wait(0.5)
-        # Não calcular erro de ajuste: parâmetros e condição inicial não foram identificados.
-        peak = int(np.argmax(np.abs(self.data.values)))
-        p_real, p_theory = axes.c2p(self.data.t[peak], self.data.values[peak]), axes.c2p(self.data.t[peak], predicted_a[peak])
-        gap = DashedLine(p_theory, p_real, color=CORAL, stroke_width=2, dash_length=0.055)
-        ring = Circle(radius=0.16, color=CORAL, stroke_width=1.8).move_to(p_real)
-        gap_label = text("diferença observada", 18, CORAL).move_to([1.4, -2.15 if not self.portrait else -3.1, 0])
-        self.play(Create(gap), Create(ring), FadeIn(gap_label), run_time=0.8)
-        self.say("As diferenças levantam perguntas; ainda não validam o modelo.")
-        self.wait(1.7)
-        next_steps = text("montagem + calibração + parâmetros + ensaio controlado", 19, MUTED, width=self.safe)
-        next_steps.move_to([0, -2.8 if not self.portrait else -4.25, 0])
-        self.play(FadeIn(next_steps, shift=UP * 0.1), run_time=0.75)
-        self.say("É preciso conhecer a montagem e separar gravidade de movimento.")
-        self.wait(2)
-        self.play(FadeOut(gap), FadeOut(ring), FadeOut(gap_label), run_time=0.5)
-        both = VGroup(real, theory)
-        self.add(both)
-        self.transition(keep=[both])
+            cards.arrange(RIGHT, buff=0.3)
+            cards.move_to([0, -2.75, 0])
+        self.play(LaggedStart(*[FadeIn(card, shift=UP * 0.07) for card in cards],
+                              lag_ratio=0.18), run_time=1.7, rate_func=smooth)
+        self.say("v(t) é o deslocamento idealizado; suas derivadas são velocidade e aceleração.")
+        self.wait(1.5)
+        self.transition(keep=[frame])
 
     def closing(self):
         if self.header:
@@ -408,7 +319,8 @@ class SensorVibracao(MovingCameraScene):
             self.play(ReplacementTransform(self.carry, halo), FadeIn(rig), run_time=1.3)
         else:
             self.play(Create(halo), FadeIn(rig), run_time=1.2)
-        icons = VGroup(sensor_icon(0.5), csv_icon(0.5), python_icon(0.5), text("x(t)", 26, AMBER, font="Cambria Math"))
+        icons = VGroup(sensor_icon(0.5), csv_icon(0.5), python_icon(0.5),
+                       text("aᵧ(t)", 26, CYAN, font="Cambria Math"))
         center = halo.get_center()
         positions = [center + UP * 2.1, center + RIGHT * 2.1, center + DOWN * 2.1, center + LEFT * 2.1]
         for item, pos in zip(icons, positions):
@@ -421,13 +333,8 @@ class SensorVibracao(MovingCameraScene):
         title = text("Sensor de\nVibração" if self.portrait else "Sensor de Vibração",
                      53, WHITE, width=self.safe, weight="SEMIBOLD").next_to(mark, DOWN, buff=0.55)
         self.play(FadeIn(title, shift=UP * 0.15), run_time=1.1)
-        words = VGroup(*[text(word, 27, color) for word, color in
-                          [("Medir.", CYAN), ("Modelar.", AMBER), ("Comparar.", VIOLET), ("Entender.", WHITE)]])
-        words.arrange(DOWN if self.portrait else RIGHT, buff=0.24 if self.portrait else 0.38)
-        words.next_to(title, DOWN, buff=0.5)
-        self.play(LaggedStart(*[FadeIn(word, shift=UP * 0.12) for word in words], lag_ratio=0.25), run_time=1.8)
         note = text(("dados sintéticos" if self.data.synthetic else "medição real") +
-                    " · modelo conceitual · investigação em evolução", 15, MUTED, width=self.safe)
+                    " · aceleração bruta em g · dados do ensaio", 15, MUTED, width=self.safe)
         note.move_to([0, -self.h / 2 + 0.65, 0])
         self.play(FadeIn(note), run_time=0.6)
         self.wait(2.5)

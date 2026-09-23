@@ -123,6 +123,49 @@ def mechanical(q: ValueTracker):
     return VGroup(wall, hatches, floor, coil, dashpot, mass, m, k, c), (mass, coil, dashpot), (m, c, k)
 
 
+def portal_frame(q: ValueTracker, scale=1.0, center=(0, 0, 0)):
+    """Pórtico esquemático em balanço lateral, com massa e sensor no topo."""
+    center = np.array(center, dtype=float)
+
+    def point(x, y):
+        return center + scale * np.array([x, y, 0], dtype=float)
+
+    base = Line(point(-2.75, -1.20), point(2.75, -1.20), color=GRID, stroke_width=5 * scale)
+    feet = VGroup(*[
+        Line(point(x - 0.35, -1.22), point(x + 0.35, -1.22), color=MUTED, stroke_width=3 * scale)
+        for x in (-2.1, 2.1)
+    ])
+
+    def deformed_frame():
+        sway = q.get_value()
+        left = VMobject(stroke_color=CYAN, stroke_width=7 * scale).set_points_smoothly([
+            point(-2.1, -1.15), point(-2.08 + 0.18 * sway, -0.35),
+            point(-2.02 + 0.68 * sway, 0.45), point(-2.0 + sway, 1.15),
+        ])
+        right = VMobject(stroke_color=CYAN, stroke_width=7 * scale).set_points_smoothly([
+            point(2.1, -1.15), point(2.08 + 0.18 * sway, -0.35),
+            point(2.02 + 0.68 * sway, 0.45), point(2.0 + sway, 1.15),
+        ])
+        beam = VMobject(stroke_color=WHITE, stroke_width=8 * scale).set_points_smoothly([
+            point(-2.0 + sway, 1.15), point(-1.0 + sway, 1.13),
+            point(sway, 1.12), point(1.0 + sway, 1.13), point(2.0 + sway, 1.15),
+        ])
+        return VGroup(left, right, beam)
+
+    frame = always_redraw(deformed_frame)
+    mass = RoundedRectangle(width=0.82 * scale, height=0.48 * scale, corner_radius=0.08 * scale,
+                            color=AMBER, fill_color="#3A2D20", fill_opacity=1,
+                            stroke_width=2.5 * scale).move_to(point(0, 1.52))
+    mass.add_updater(lambda mob: mob.move_to(point(q.get_value(), 1.52)))
+    mass_label = text("M", 25 * scale, AMBER, font="Cambria Math").move_to(mass.get_center())
+    mass_label.add_updater(lambda mob: mob.move_to(mass.get_center()))
+    sensor = sensor_icon(0.42 * scale)
+    sensor.add_updater(lambda mob: mob.move_to(point(q.get_value() + 1.18, 1.52)))
+    drawing = VGroup(base, feet, frame, mass, mass_label, sensor)
+    components = {"frame": frame, "mass": mass, "sensor": sensor}
+    return drawing, components
+
+
 def structure(q: ValueTracker):
     """Estrutura ilustrativa flexível; q expressa apenas movimento visual."""
     base = RoundedRectangle(width=5.8, height=0.25, corner_radius=0.05,
@@ -157,6 +200,33 @@ def edo_equation(width=10):
     terms = VGroup(inertia, text("+", 34), damping, text("+", 34),
                    elastic, text("=", 34), text("F(t)", 42, WHITE, font="Cambria Math"))
     terms.arrange(RIGHT, buff=0.26, aligned_edge=DOWN)
+    if terms.width > width:
+        terms.scale_to_fit_width(width)
+    return terms
+
+
+def portal_equation(width=10, size=38):
+    """Equação de movimento usando v(t) como deslocamento generalizado."""
+    def variable(derivative, color):
+        letter = text("v", size, color, font="Cambria Math")
+        dots = VGroup()
+        for i in range(derivative):
+            dots.add(Dot(radius=0.025, color=color).move_to(
+                letter.get_top() + [0.055 * (i - (derivative - 1) / 2), 0.055, 0]
+            ))
+        return VGroup(letter, dots)
+
+    def term(coefficient, derivative, color):
+        pieces = [text(coefficient, size, color, font="Cambria Math"), variable(derivative, color)]
+        if derivative >= 0:
+            pieces.append(text("(t)", int(size * 0.72), color, font="Cambria Math"))
+        return VGroup(*pieces).arrange(RIGHT, buff=0.035, aligned_edge=DOWN)
+
+    terms = VGroup(term("M", 2, CYAN), text("+", size * 0.78),
+                   term("ε", 1, VIOLET), text("+", size * 0.78),
+                   term("K", 0, AMBER), text("=", size * 0.78),
+                   text("P(t)", size, WHITE, font="Cambria Math"))
+    terms.arrange(RIGHT, buff=0.16, aligned_edge=DOWN)
     if terms.width > width:
         terms.scale_to_fit_width(width)
     return terms

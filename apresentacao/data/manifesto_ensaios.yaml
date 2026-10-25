@@ -1,0 +1,33 @@
+{
+  "ensaios": [
+    {
+      "nome": "Sem massa",
+      "arquivo": "dados_aceleracao_giro-2026-09-21_15-09-03.csv",
+      "massa": "210 g (informada)",
+      "eixo_transversal": "ay",
+      "observacoes": "Tabela de ensaios: frequência analítica de referência 6,80 Hz."
+    },
+    {
+      "nome": "1 massa",
+      "arquivo": "dados_aceleracao_giro-2026-09-21_15-14-09.csv",
+      "massa": "589,3 g",
+      "eixo_transversal": "ay",
+      "observacoes": "Tabela de ensaios: frequência analítica de referência 3,28 Hz."
+    },
+    {
+      "nome": "2 massas",
+      "arquivo": "dados_aceleracao_giro-2026-09-21_15-13-31.csv",
+      "massa": "1.177,8 g (589,3 + 588,5 g)",
+      "eixo_transversal": "ay",
+      "observacoes": "Tabela de ensaios: frequência analítica de referência 2,44 Hz."
+    },
+    {
+      "nome": "3 massas",
+      "arquivo": "dados_aceleracao_giro-2026-09-21_14-47-18.csv",
+      "massa": "1.613,0 g (589,3 + 588,5 + 435,2 g)",
+      "eixo_transversal": "ay",
+      "frequencia_poster_hz": 2.02,
+      "observacoes": "Ensaio de referência do pôster; pico transversal esperado próximo de 2,02 Hz."
+    }
+  ]
+}
